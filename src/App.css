@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* General Body Settings */
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background-color: #0b0716; /* Dark background */
+}
+
+/* Hero Section Parallax Effect */
+.hero-container {
+  position: relative;
+  height: 100vh; /* Full screen height */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  color: white;
+}
+
+.hero-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('/images/product1.jpg'); /* Your image path */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* This makes the background fixed while scrolling */
+  background-attachment: fixed; 
+  z-index: 0;
+}
+
+/* Optional: Add a darker overlay on the image for text readability */
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4); /* Adjust opacity here */
+  z-index: 1;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2; /* Puts text above the background/overlay */
+  text-align: center;
+  padding: 20px;
+}
+
+/* Typography styles */
+.hero-title {
+  font-size: 5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 0.9;
+  margin-bottom: 20px;
+  letter-spacing: 0.05em;
+  text-shadow: 0 4px 6px rgba(0,0,0,0.5);
+}
+
+.hero-title-hollow {
+  color: transparent;
+  -webkit-text-stroke: 2px #a855f7; /* Purple hollow stroke */
+}
+
+.hero-subtitle {
+  font-size: 1.2rem;
+  color: #d1d5db; /* Light gray */
+  margin-bottom: 30px;
+}
