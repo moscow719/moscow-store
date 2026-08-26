@@ -149,13 +149,21 @@ const FooterContent = ({ timeLeft, setShowAllModal }) => (
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pt-6 border-t border-purple-950">
         <div className="space-y-4 md:col-span-1">
-          <div className="text-2xl font-black italic tracking-widest text-white">MOSCOW</div>
+          <img src="/images/logo.jpg" alt="MOSCOW" className="h-10 w-auto object-contain" />
           <p className="text-gray-400 text-xs leading-relaxed">Anime streetwear built for people who actually watch the show. Heavyweight fabric, limited runs, shipped across Egypt.</p>
-          <div className="flex items-center gap-4 text-lg text-gray-300 pt-2">
-            <span className="hover:text-purple-400 cursor-pointer transition-colors"></span>
-            <span className="hover:text-purple-400 cursor-pointer transition-colors"></span>
-            <span className="hover:text-purple-400 cursor-pointer transition-colors"></span>
-            <span className="hover:text-purple-400 cursor-pointer transition-colors">⭕</span>
+          <div className="flex items-center gap-4 text-gray-300 pt-2">
+            <a href="#" aria-label="Instagram" className="hover:text-purple-400 cursor-pointer transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" strokeWidth="2"/><path strokeWidth="2" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><path strokeWidth="2" strokeLinecap="round" d="M17.5 6.5h.01"/></svg>
+            </a>
+            <a href="#" aria-label="Facebook" className="hover:text-purple-400 cursor-pointer transition-colors">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12a10 10 0 10-11.6 9.87v-6.98H7.9V12h2.5V9.8c0-2.47 1.47-3.84 3.72-3.84 1.08 0 2.2.19 2.2.19v2.43h-1.24c-1.22 0-1.6.76-1.6 1.54V12h2.72l-.44 2.89h-2.28v6.98A10 10 0 0022 12z"/></svg>
+            </a>
+            <a href="#" aria-label="TikTok" className="hover:text-purple-400 cursor-pointer transition-colors">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 2h-3v13.5a2.5 2.5 0 11-2.5-2.5c.17 0 .34.02.5.05V9.98a5.5 5.5 0 105.5 5.52V8.2a7.44 7.44 0 004.5 1.53v-3a4.44 4.44 0 01-4-4.4 4.5 4.5 0 010-.33z"/></svg>
+            </a>
+            <a href="#" aria-label="WhatsApp" className="hover:text-purple-400 cursor-pointer transition-colors">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347M12.05 21.785h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26C2.166 6.443 6.6 2.008 12.05 2.008c2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884M20.463 3.488A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            </a>
           </div>
         </div>
         <div className="space-y-3">
@@ -242,8 +250,8 @@ const ProductDetailModal = ({
       </div>
 
       <div className="flex items-center justify-between px-6 md:px-8 py-4 bg-black border-b border-purple-900/40 sticky top-0 z-50">
-        <div className="text-xl font-black tracking-[0.25em] uppercase text-white cursor-pointer" onClick={closeProductDetail}>
-          MOSCOW
+        <div className="cursor-pointer" onClick={closeProductDetail}>
+          <img src="/images/logo.jpg" alt="MOSCOW" className="h-9 w-auto object-contain" />
         </div>
         <button
           onClick={closeProductDetail}
@@ -412,7 +420,7 @@ const ProductDetailModal = ({
 
             <div className="grid grid-cols-2 gap-4 pt-6 border-t border-purple-950">
               <div className="flex items-center gap-2 text-xs text-gray-300">
-                <span className="text-purple-400 text-lg"></span>
+                <span className="text-purple-400 text-lg">🚚</span>
                 <span>Free shipping over 1500 LE</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-300">
@@ -420,11 +428,11 @@ const ProductDetailModal = ({
                 <span>Cash on delivery</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-300">
-                <span className="text-purple-400 text-lg"></span>
+                <span className="text-purple-400 text-lg">🔄</span>
                 <span>Easy exchanges</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-300">
-                <span className="text-purple-400 text-lg"></span>
+                <span className="text-purple-400 text-lg">⚡</span>
                 <span>Limited drop - no restocks</span>
               </div>
             </div>
@@ -739,9 +747,15 @@ export default function App() {
       <header className="flex items-center justify-between px-6 md:px-10 py-4 bg-black/90 backdrop-blur-md sticky top-0 z-50 border-b border-purple-900/30">
         <div className="flex items-center gap-6 md:gap-10">
           <div className="flex items-center md:hidden">
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-white text-xl p-1 cursor-pointer" aria-label="Toggle menu"></button>
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-white p-1 cursor-pointer" aria-label="Toggle menu">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button>
           </div>
-          <div onClick={() => { setShowAllModal(false); setShowMenModal(false); closeProductDetail(); }} className="text-xl md:text-2xl font-black tracking-[0.25em] uppercase text-white cursor-pointer">MOSCOW</div>
+          <div onClick={() => { setShowAllModal(false); setShowMenModal(false); closeProductDetail(); }} className="cursor-pointer">
+            <img src="/images/logo.jpg" alt="MOSCOW" className="h-9 md:h-11 w-auto object-contain" />
+          </div>
           <nav className="hidden md:flex items-center gap-6 text-xs font-bold tracking-wider uppercase text-gray-300">
             <span onClick={() => { setShowMenModal(true); setMenSubCategory('ALL'); }} className="cursor-pointer hover:text-purple-400 transition-colors">MEN</span>
             <span className="cursor-pointer hover:text-purple-400 transition-colors">WOMEN</span>
@@ -753,7 +767,9 @@ export default function App() {
         <div className="flex items-center gap-3 md:gap-4 text-xs font-bold uppercase tracking-wider relative">
           <div className="relative" ref={searchRef}>
             <div onClick={() => { setShowSearchDropdown(!showSearchDropdown); setShowAccountDropdown(false); setShowNotifications(false); }} className="cursor-pointer hover:text-purple-400 flex items-center gap-1.5">
-              <span className="text-base"></span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
               <span className="hidden sm:inline">SEARCH</span>
             </div>
             {showSearchDropdown && (
@@ -870,7 +886,7 @@ export default function App() {
                 </div>
                 <div className="divide-y divide-purple-950/60 bg-[#0d0617] text-xs font-bold uppercase tracking-wider">
                   <div onClick={() => { setShowAccountDropdown(false); }} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-gray-200 flex items-center gap-2">
-                    <span></span> My Account
+                    <span>👤</span> My Account
                   </div>
                   <div onClick={() => { setShowAccountDropdown(false); setShowTrackOrderModal(true); }} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-gray-200 flex items-center gap-2">
                     <span>📦</span> Track Order
@@ -885,7 +901,7 @@ export default function App() {
                     <span>❓</span> Help & FAQ
                   </div>
                   <div onClick={() => setShowAccountDropdown(false)} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-red-400 flex items-center gap-2">
-                    <span></span> Logout
+                    <span>🚪</span> Logout
                   </div>
                 </div>
               </div>
@@ -967,7 +983,7 @@ export default function App() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-lg flex flex-col p-6 space-y-6 md:hidden">
           <div className="flex justify-between items-center border-b border-purple-900 pb-4">
-            <span className="text-xl font-black tracking-widest">MOSCOW</span>
+            <img src="/images/logo.jpg" alt="MOSCOW" className="h-9 w-auto object-contain" />
             <button onClick={() => setMobileMenuOpen(false)} className="text-xl font-bold p-2">✕</button>
           </div>
           <div className="flex flex-col space-y-4 text-base font-extrabold uppercase">
@@ -976,6 +992,37 @@ export default function App() {
             <span className="cursor-pointer hover:text-purple-400">Kids</span>
             <span className="cursor-pointer hover:text-purple-400">Beauty</span>
             <span onClick={() => { setShowAllModal(true); setMobileMenuOpen(false); }} className="cursor-pointer hover:text-purple-400">Shop All Products</span>
+          </div>
+
+          <div className="flex flex-col space-y-4 text-sm font-bold uppercase tracking-wider border-t border-purple-900 pt-6">
+            <span onClick={() => { setMobileMenuOpen(false); setShowSearchDropdown(true); }} className="cursor-pointer hover:text-purple-400 flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              Search
+            </span>
+            <span onClick={() => { setMobileMenuOpen(false); setShowTrackOrderModal(true); }} className="cursor-pointer hover:text-purple-400 flex items-center gap-2">
+              <span>📦</span> Track Order
+            </span>
+            <span onClick={() => { setMobileMenuOpen(false); setShowWishlistModal(true); }} className="cursor-pointer hover:text-purple-400 flex items-center gap-2">
+              <span>♡</span> Wishlist ({wishlist.length})
+            </span>
+            <span onClick={() => { setMobileMenuOpen(false); setShowAccountDropdown(true); }} className="cursor-pointer hover:text-purple-400 flex items-center gap-2">
+              <span>👤</span> Account
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 border-t border-purple-900 pt-6 text-xs font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-2">
+              <span>🌐</span>
+              <button onClick={() => setLanguage('AR')} className={`px-2 py-1 rounded ${language === 'AR' ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>AR</button>
+              <button onClick={() => setLanguage('EN')} className={`px-2 py-1 rounded ${language === 'EN' ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>EN</button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>💰</span>
+              <button onClick={() => setCurrency('LE')} className={`px-2 py-1 rounded ${currency === 'LE' ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>LE</button>
+              <button onClick={() => setCurrency('USD')} className={`px-2 py-1 rounded ${currency === 'USD' ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>USD</button>
+            </div>
           </div>
         </div>
       )}
@@ -1131,7 +1178,10 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-black backdrop-blur-md flex flex-col overflow-y-auto">
           <div className="bg-[#581c87] text-center text-xs py-2 px-4 tracking-widest uppercase font-bold text-white w-full">MEN'S DEPARTMENT — PROFESSIONAL E-COMMERCE VIEW</div>
           <div className="flex items-center justify-between px-6 md:px-8 py-4 bg-black border-b border-purple-900/40 sticky top-0 z-50">
-            <div className="text-xl font-black tracking-[0.25em] uppercase text-white cursor-pointer" onClick={() => setShowMenModal(false)}>MOSCOW / MEN</div>
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setShowMenModal(false)}>
+              <img src="/images/logo.jpg" alt="MOSCOW" className="h-8 w-auto object-contain" />
+              <span className="text-xs font-black tracking-[0.25em] uppercase text-white">/ MEN</span>
+            </div>
             <button onClick={() => setMobileFilterOpen(true)} className="lg:hidden bg-purple-600 text-white px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider">️ Filters</button>
           </div>
           <div className="max-w-7xl mx-auto w-full px-6 md:px-12 py-10 space-y-8 flex-grow">
@@ -1225,7 +1275,9 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-black backdrop-blur-md flex flex-col overflow-y-auto">
           <div className="bg-[#581c87] text-center text-xs py-2 px-4 tracking-widest uppercase font-bold text-white w-full">LIMITED DROPS — NO RESTOCKS</div>
           <div className="flex items-center justify-between px-6 md:px-8 py-4 bg-black border-b border-purple-900/40 sticky top-0 z-50">
-            <div onClick={() => setShowAllModal(false)} className="text-xl font-black tracking-[0.25em] uppercase text-white cursor-pointer">MOSCOW</div>
+            <div onClick={() => setShowAllModal(false)} className="cursor-pointer">
+              <img src="/images/logo.jpg" alt="MOSCOW" className="h-9 w-auto object-contain" />
+            </div>
             <button onClick={() => setShowAllModal(false)} className="bg-white text-black px-4 py-1.5 rounded text-xs font-black uppercase">Close X</button>
           </div>
           <div className="max-w-7xl mx-auto w-full px-6 md:px-12 pt-10 mb-8">
@@ -1244,7 +1296,10 @@ export default function App() {
             YOUR WISHLIST
           </div>
           <div className="flex items-center justify-between px-6 md:px-8 py-4 bg-black border-b border-purple-900/40 sticky top-0 z-50">
-            <div className="text-xl font-black tracking-[0.25em] uppercase text-white">MOSCOW / WISHLIST</div>
+            <div className="flex items-center gap-2">
+              <img src="/images/logo.jpg" alt="MOSCOW" className="h-8 w-auto object-contain" />
+              <span className="text-xs font-black tracking-[0.25em] uppercase text-white">/ WISHLIST</span>
+            </div>
             <button
               onClick={() => setShowWishlistModal(false)}
               className="bg-white text-black px-4 py-1.5 rounded text-xs font-black uppercase"
@@ -1304,7 +1359,10 @@ export default function App() {
             YOUR CART
           </div>
           <div className="flex items-center justify-between px-6 md:px-8 py-4 bg-black border-b border-purple-900/40 sticky top-0 z-50">
-            <div className="text-xl font-black tracking-[0.25em] uppercase text-white">MOSCOW / CART</div>
+            <div className="flex items-center gap-2">
+              <img src="/images/logo.jpg" alt="MOSCOW" className="h-8 w-auto object-contain" />
+              <span className="text-xs font-black tracking-[0.25em] uppercase text-white">/ CART</span>
+            </div>
             <button
               onClick={() => setShowCartModal(false)}
               className="bg-white text-black px-4 py-1.5 rounded text-xs font-black uppercase"
