@@ -34,7 +34,8 @@ const dbRequest = async (table, options = {}) => {
     throw new Error(`Supabase ${response.status}: ${detail || response.statusText}`);
   }
   if (response.status === 204) return [];
-  return fromDb(await response.json());
+  const text = await response.text();
+  return text ? fromDb(JSON.parse(text)) : [];
 };
 
 const list = table => dbRequest(table);
