@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "name": "SUMMER COLLECTION TEE",
+    "price": 700,
+    "image": "/images/product1.jpg",
+    "category": "T-SHIRTS",
+    "inStock": true,
+    "rating": 4.5
+  },
+  {
+    "id": 2,
+    "name": "ULTIMATE BERSERK TEE",
+    "price": 750,
+    "image": "/images/product2.jpg",
+    "category": "T-SHIRTS",
+    "inStock": true,
+    "rating": 5
+  },
+  {
+    "id": 3,
+    "name": "LUFFY - STRAW HAT",
+    "price": 750,
+    "image": "/images/product3.jpg",
+    "category": "T-SHIRTS",
+    "inStock": false,
+    "rating": 4.2
+  },
+  {
+    "id": 4,
+    "name": "ZORO ASHU MODE",
+    "price": 680,
+    "image": "/images/product4.jpg",
+    "category": "T-SHIRTS",
+    "inStock": true,
+    "rating": 4.8
+  },
+  {
+    "id": 5,
+    "name": "DARK STREET OVERSIZED",
+    "price": 800,
+    "image": "/images/product5.jpg",
+    "category": "T-SHIRTS",
+    "inStock": true,
+    "rating": 4.6
+  },
+  {
+    "id": 6,
+    "name": "ANIME VINTAGE TEE",
+    "price": 720,
+    "image": "/images/product6.jpg",
+    "category": "T-SHIRTS",
+    "inStock": true,
+    "rating": 4.1
+  },
+  {
+    "id": 7,
+    "name": "SHADOW HUNTER HOODIE",
+    "price": 1150,
+    "image": "/images/product7.jpg",
+    "category": "HOODIES",
+    "inStock": true,
+    "rating": 4.9
+  },
+  {
+    "id": 8,
+    "name": "TOKYO REVENGE DROP",
+    "price": 790,
+    "image": "/images/product8.jpg",
+    "category": "T-SHIRTS",
+    "inStock": false,
+    "rating": 3.9
+  },
+  {
+    "id": 9,
+    "name": "NINJA STREETWEAR",
+    "price": 850,
+    "image": "/images/product9.jpg",
+    "category": "T-SHIRTS",
+    "inStock": true,
+    "rating": 4.4
+  },
+  {
+    "id": 10,
+    "name": "CYBERPUNK GRAPHIC TEE",
+    "price": 740,
+    "image": "/images/product10.jpg",
+    "category": "T-SHIRTS",
+    "inStock": true,
+    "rating": 4.7
+  }
+]
