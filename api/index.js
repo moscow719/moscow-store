@@ -160,6 +160,36 @@ export default async function handler(req, res) {
       if (!adminAuthorized(req)) return send(res, 401, { error: 'Admin authentication required' }, req);
       const resource = parts[1];
       if (resource === 'products') {
+        if (req.method === 'POST' && parts.length === 3 && parts[2] === 'sync') {
+          const body = await jsonBody(req);
+          if (!Array.isArray(body.products)) {
+            return send(res, 400, { error: 'products must be an array' }, req);
+          }
+          if (body.products.some(product => !product || typeof product !== 'object' ||
+              product.id === undefined || product.id === null || product.id === '')) {
+            return send(res, 400, { error: 'each product must have an id' }, req);
+          }
+          const products = body.products.map(product => ({
+            id: Number(product.id),
+            name: String(product.name || '').trim(),
+            price: Number(product.price) || 0,
+            image: product.image || null,
+            category: product.category || null,
+            inStock: product.inStock !== false,
+            rating: Number(product.rating) || 0,
+            details: product
+          }));
+          if (products.some(product => !Number.isInteger(product.id) || !product.name)) {
+            return send(res, 400, { error: 'products must use numeric ids and names' }, req);
+          }
+          await dbRequest('products', {
+            method: 'POST',
+            query: { on_conflict: 'id' },
+            prefer: 'resolution=merge-duplicates,return=minimal',
+            body: products
+          });
+          return send(res, 200, { count: products.length }, req);
+        }
         const products = await list('products');
         if (req.method === 'GET' && parts.length === 2) return send(res, 200, products, req);
         if (req.method === 'POST' && parts.length === 2) {
