@@ -5,7 +5,7 @@ import FooterContent from './components/FooterContent';
 import ProductDetailModal from './components/ProductDetailModal';
 import AdminPanel from './components/AdminPanel';
 import { products, bestSellers, typeCategories, counts, categoryIcons } from './data/products';
-import { fetchProducts } from './api';
+import { fetchProducts, loginUser, registerUser } from './api';
 
 const getProductIdentity = (item) => {
   if (!item) return '';
@@ -68,6 +68,15 @@ export default function App() {
 
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const accountRef = useRef(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({ email: '', password: '' });
+  const [authError, setAuthError] = useState('');
+  const [authMessage, setAuthMessage] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('moscow-user') || 'null'); } catch { return null; }
+  });
 
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
@@ -329,6 +338,44 @@ export default function App() {
     }
   };
 
+  const openAuthModal = (mode = 'login') => {
+    setAuthMode(mode);
+    setAuthForm({ email: '', password: '' });
+    setAuthError('');
+    setAuthMessage('');
+    setShowAccountDropdown(false);
+    setShowAuthModal(true);
+  };
+
+  const handleAuthSubmit = async (event) => {
+    event.preventDefault();
+    setAuthError('');
+    setAuthMessage('');
+    if (!authForm.email.trim() || !authForm.password) {
+      setAuthError('Please enter your email and password.');
+      return;
+    }
+    if (authMode === 'register' && authForm.password.length < 8) {
+      setAuthError('Password must be at least 8 characters.');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const result = authMode === 'login'
+        ? await loginUser(authForm)
+        : await registerUser(authForm);
+      setCurrentUser(result.user);
+      localStorage.setItem('moscow-user', JSON.stringify(result.user));
+      setAuthMessage(authMode === 'login' ? 'Logged in successfully.' : 'Account created successfully.');
+      setAuthForm({ email: '', password: '' });
+      window.setTimeout(() => setShowAuthModal(false), 900);
+    } catch (error) {
+      setAuthError(error.message || 'Unable to complete this request.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const notifications = React.useMemo(() => {
     const result = [];
     if (cartCount > 0) {
@@ -481,7 +528,7 @@ export default function App() {
           <div className="relative" ref={accountRef}>
             <div onClick={() => { setShowAccountDropdown(!showAccountDropdown); setShowSearchDropdown(false); setShowNotifications(false); }} className="cursor-pointer hover:text-purple-400 flex items-center gap-1.5">
               <span className="text-base">👤</span>
-              <span className="hidden sm:inline">LOGIN</span>
+              <span className="hidden sm:inline">{currentUser ? currentUser.email.split('@')[0] : 'LOGIN'}</span>
             </div>
             {showAccountDropdown && (
               <div className="absolute right-0 mt-3 bg-[#0d0617] border border-purple-950 shadow-2xl z-50 rounded-md overflow-hidden text-white text-left" style={{ width: '280px', maxWidth: '92vw' }}>
@@ -489,9 +536,14 @@ export default function App() {
                   <h3 className="text-xs font-extrabold tracking-wider uppercase">Quick Actions</h3>
                 </div>
                 <div className="divide-y divide-purple-950/60 bg-[#0d0617] text-xs font-bold uppercase tracking-wider">
-                  <div onClick={() => { setShowAccountDropdown(false); }} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-gray-200 flex items-center gap-2">
+                  <div onClick={() => openAuthModal('login')} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-gray-200 flex items-center gap-2">
                     <span>👤</span> My Account
                   </div>
+                  {!currentUser && (
+                    <div onClick={() => openAuthModal('register')} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-purple-300 flex items-center gap-2">
+                      <span>✍️</span> Create Account
+                    </div>
+                  )}
                   <div onClick={() => { setShowAccountDropdown(false); setShowTrackOrderModal(true); }} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-gray-200 flex items-center gap-2">
                     <span>📦</span> Track Order
                   </div>
@@ -504,9 +556,9 @@ export default function App() {
                   <div onClick={() => setShowAccountDropdown(false)} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-gray-200 flex items-center gap-2">
                     <span>❓</span> Help & FAQ
                   </div>
-                  <div onClick={() => setShowAccountDropdown(false)} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-red-400 flex items-center gap-2">
+                  {currentUser && <div onClick={() => { localStorage.removeItem('moscow-user'); setCurrentUser(null); setShowAccountDropdown(false); }} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-red-400 flex items-center gap-2">
                     <span>🚪</span> Logout
-                  </div>
+                  </div>}
                   <div onClick={() => { setShowAccountDropdown(false); setShowAdminPanel(true); }} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-purple-300 flex items-center gap-2">
                     <span>⚙️</span> Admin Panel
                   </div>
@@ -617,7 +669,7 @@ export default function App() {
               </button>
               <div className="grid grid-cols-2 border-y border-purple-900/50 mt-2">
                 <button onClick={() => { setMobileMenuOpen(false); setShowWishlistModal(true); }} className="text-left p-5 text-lg text-gray-300 border-r border-purple-900/50 hover:bg-purple-900/20 hover:text-purple-300 transition-colors">Wishlist</button>
-                <button onClick={() => { setMobileMenuOpen(false); setShowAccountDropdown(true); }} className="text-left p-5 text-lg text-gray-300 hover:bg-purple-900/20 hover:text-purple-300 transition-colors">Log in</button>
+                <button onClick={() => { setMobileMenuOpen(false); openAuthModal('login'); }} className="text-left p-5 text-lg text-gray-300 hover:bg-purple-900/20 hover:text-purple-300 transition-colors">Log in</button>
               </div>
               <div className="flex gap-8 py-7 text-2xl text-purple-300">
                 <a href="#" aria-label="Instagram" className="hover:text-white transition-colors">◎</a>
@@ -1074,6 +1126,55 @@ export default function App() {
         timeLeft={timeLeft}
         setShowAllModal={setShowAllModal}
       />
+
+      {showAuthModal && (
+        <div className="fixed inset-0 z-[75] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative w-full max-w-md bg-[#0d0617] border border-purple-900 rounded-xl shadow-2xl p-6">
+            <button onClick={() => setShowAuthModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white text-xl" aria-label="Close authentication">✕</button>
+            <h2 className="text-xl font-black uppercase tracking-wider text-purple-300 mb-2">
+              {authMode === 'login' ? 'Welcome Back' : 'Create Account'}
+            </h2>
+            <p className="text-xs text-gray-400 mb-6">
+              {authMode === 'login' ? 'Log in to manage your MOSCOW account.' : 'Create an account to manage your orders.'}
+            </p>
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-2">Email</label>
+                <input
+                  type="email"
+                  value={authForm.email}
+                  onChange={event => setAuthForm(prev => ({ ...prev, email: event.target.value }))}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  className="w-full bg-[#12071f] border border-purple-900 text-white px-4 py-3 rounded outline-none focus:border-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-2">Password</label>
+                <input
+                  type="password"
+                  value={authForm.password}
+                  onChange={event => setAuthForm(prev => ({ ...prev, password: event.target.value }))}
+                  placeholder="At least 8 characters"
+                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                  className="w-full bg-[#12071f] border border-purple-900 text-white px-4 py-3 rounded outline-none focus:border-purple-500"
+                />
+              </div>
+              {authError && <p className="text-sm text-red-400">⚠️ {authError}</p>}
+              {authMessage && <p className="text-sm text-green-400">✓ {authMessage}</p>}
+              <button type="submit" disabled={authLoading} className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white font-bold py-3 rounded uppercase tracking-wider">
+                {authLoading ? 'Please wait...' : authMode === 'login' ? 'Log In' : 'Create Account'}
+              </button>
+            </form>
+            <button
+              onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(''); setAuthMessage(''); }}
+              className="w-full mt-4 text-sm text-purple-300 hover:text-white underline"
+            >
+              {authMode === 'login' ? 'New customer? Create an account' : 'Already have an account? Log in'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {showCheckoutModal && (
         <CheckoutModal
