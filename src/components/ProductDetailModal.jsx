@@ -25,6 +25,7 @@ const ProductDetailModal = ({
   setShowAllModal,
 }) => {
   const product = selectedProduct;
+  const [openDetail, setOpenDetail] = React.useState(null);
   const productImages = React.useMemo(() => {
     if (!product) return [];
     if (Array.isArray(product.detailImages) && product.detailImages.length > 0) {
@@ -63,8 +64,8 @@ const ProductDetailModal = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black backdrop-blur-md flex flex-col overflow-y-auto">
-      <div className="bg-[#581c87] text-center text-xs py-2 px-4 tracking-widest uppercase font-bold text-white w-full">
-        {product.tag || 'LIMITED EDITION'} — {product.inStock ? 'IN STOCK' : 'SOLD OUT'}
+      <div className="bg-[#4c2b86] text-center text-xs md:text-sm py-2 px-4 tracking-wide uppercase font-black text-white w-full">
+        BUY ANY 2 T-SHIRTS FOR 1095 &nbsp; | &nbsp; BUY ANY 3 T-SHIRTS FOR 1445
       </div>
 
       <div className="flex items-center justify-between px-6 md:px-8 py-4 bg-black border-b border-purple-900/40 sticky top-0 z-50">
@@ -79,9 +80,9 @@ const ProductDetailModal = ({
         </button>
       </div>
 
-      <div className="max-w-7xl mx-auto w-full px-6 md:px-12 py-10 flex-grow">
+      <div className="max-w-7xl mx-auto w-full px-0 md:px-12 py-0 md:py-10 flex-grow">
 
-        <nav className="flex items-center gap-2 text-xs text-gray-400 mb-6">
+        <nav className="hidden md:flex items-center gap-2 text-xs text-gray-400 mb-6">
           <span onClick={() => closeProductDetail()} className="hover:text-purple-400 cursor-pointer">Home</span>
           <span>/</span>
           <span className="hover:text-purple-400 cursor-pointer">Men</span>
@@ -91,10 +92,10 @@ const ProductDetailModal = ({
           <span className="text-white">{product.name}</span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 md:gap-12">
 
-          <div className="space-y-4">
-            <div className="relative aspect-[3/4] bg-[#0d0617] rounded-lg overflow-hidden border border-purple-950">
+          <div className="space-y-0 md:space-y-4">
+            <div className="relative aspect-[3/4] md:rounded-lg overflow-hidden border-b md:border border-purple-950">
               {product.tag && (
                 <span className="absolute top-4 left-4 z-10 bg-purple-600 text-xs font-bold px-3 py-1.5 uppercase tracking-widest text-white rounded shadow-lg">
                   {product.tag}
@@ -110,7 +111,7 @@ const ProductDetailModal = ({
               />
             </div>
 
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-2 p-3 md:p-0">
               {productImages.map((img, idx) => (
                 <button
                   key={idx}
@@ -130,8 +131,9 @@ const ProductDetailModal = ({
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 px-4 py-6 md:px-0 md:py-0">
             <div>
+              <p className="text-[11px] uppercase tracking-widest text-gray-400 mb-1">{product.category || 'T-SHIRT'}</p>
               <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tight">{product.name}</h1>
               <div className="flex items-center gap-3 mt-3">
                 <div className="flex items-center gap-1 text-amber-400">
@@ -143,7 +145,7 @@ const ProductDetailModal = ({
             </div>
 
             <div className="flex items-center gap-4">
-              <span className="text-3xl font-black text-purple-400">LE {product.price.toLocaleString()}.00</span>
+              <span className="text-3xl font-black text-white">LE {product.price.toLocaleString()}.00</span>
               {product.oldPrice && (
                 <>
                   <span className="text-xl text-gray-500 line-through">LE {product.oldPrice.toLocaleString()}.00</span>
@@ -154,7 +156,7 @@ const ProductDetailModal = ({
               )}
             </div>
 
-            <p className="text-gray-300 text-sm leading-relaxed">
+            <p className="text-gray-300 text-sm leading-relaxed border-b border-purple-950 pb-5">
               {product.description || "Premium heavyweight cotton oversized tee featuring exclusive anime artwork. Limited edition drop - no restocks once sold out."}
             </p>
 
@@ -229,40 +231,62 @@ const ProductDetailModal = ({
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-2 pt-2">
               <button
                 onClick={addToCartFromDetail}
-                className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-black py-4 px-8 rounded-lg uppercase tracking-widest text-sm transition-all shadow-lg hover:shadow-purple-500/50"
+                className="flex-1 bg-[#4c2b86] hover:bg-purple-600 text-white font-black py-4 px-4 uppercase tracking-widest text-sm transition-all shadow-lg hover:shadow-purple-500/50"
               >
                 Add to Cart
               </button>
               <button
                 onClick={(e) => toggleWishlist(product.id, e)}
-                className="w-14 h-14 border-2 border-purple-950 hover:border-purple-500 rounded-lg flex items-center justify-center text-2xl transition-all hover:scale-110"
+                className="w-14 h-14 border-2 border-purple-950 hover:border-purple-500 flex items-center justify-center text-2xl transition-all hover:scale-110"
               >
                 {isWishlisted ? "❤️" : "♡"}
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-6 border-t border-purple-950">
-              <div className="flex items-center gap-2 text-xs text-gray-300">
+            <div className="grid grid-cols-2 gap-0 pt-4 border-y border-purple-950">
+              <div className="flex items-center gap-2 text-xs text-gray-300 py-3 border-b border-r border-purple-950 pr-2">
                 <span className="text-purple-400 text-lg">🚚</span>
                 <span>Free shipping over 1500 LE</span>
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-300">
+              <div className="flex items-center gap-2 text-xs text-gray-300 py-3 border-b border-purple-950 pl-2">
                 <span className="text-purple-400 text-lg">💵</span>
                 <span>Cash on delivery</span>
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-300">
+              <div className="flex items-center gap-2 text-xs text-gray-300 py-3 border-r border-purple-950 pr-2">
                 <span className="text-purple-400 text-lg">🔄</span>
                 <span>Easy exchanges</span>
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-300">
+              <div className="flex items-center gap-2 text-xs text-gray-300 py-3 pl-2">
                 <span className="text-purple-400 text-lg">⚡</span>
                 <span>Limited drop - no restocks</span>
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="px-4 md:px-0 mt-8 md:mt-14 border-t border-purple-950">
+          {[
+            ['details', 'The details', product.description || 'Premium heavyweight cotton with an oversized fit and exclusive artwork.'],
+            ['fit', 'Size & fit', 'Oversized fit. Choose your usual size for a relaxed look or size down for a closer fit.'],
+            ['shipping', 'Shipping & delivery', 'Cash on delivery available. Orders are delivered within 2–5 business days.'],
+            ['returns', 'Exchanges & replacements', 'Easy exchanges are available. Contact us if your item arrives damaged.'],
+            ['care', 'Fabric & care', 'Wash inside out with similar colors. Do not bleach. Air dry when possible.']
+          ].map(([id, title, content]) => (
+            <div key={id} className="border-b border-purple-950">
+              <button
+                type="button"
+                onClick={() => setOpenDetail(openDetail === id ? null : id)}
+                className="w-full flex items-center justify-between py-5 text-left text-xs font-bold uppercase tracking-wider text-white"
+              >
+                <span>{title}</span>
+                <span className="text-xl font-light">{openDetail === id ? '−' : '+'}</span>
+              </button>
+              {openDetail === id && <p className="pb-5 pr-8 text-sm leading-relaxed text-gray-400">{content}</p>}
+            </div>
+          ))}
         </div>
 
         {relatedProducts.length > 0 && (
