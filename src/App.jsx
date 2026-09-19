@@ -39,6 +39,8 @@ export default function App() {
   const scrollRef = useRef(null);
   const bestSellersScrollRef = useRef(null);
   const [activeTab, setActiveTab] = useState('T-SHIRTS');
+  const heroImages = ['/images/product1.jpg', '/images/product2.jpg', '/images/Hoodies8.jpg', '/images/Jackets1.jpg'];
+  const [heroImageIndex, setHeroImageIndex] = useState(0);
 
   const [showAllModal, setShowAllModal] = useState(false);
   const [showMenModal, setShowMenModal] = useState(false);
@@ -113,6 +115,13 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('moscow-read-notifications', JSON.stringify(readNotificationIds));
   }, [readNotificationIds]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setHeroImageIndex(index => (index + 1) % heroImages.length);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [heroImages.length]);
 
   useEffect(() => {
     localStorage.setItem('moscow-wishlist', JSON.stringify(wishlist));
@@ -687,7 +696,16 @@ export default function App() {
 
       <section className="relative h-[88vh] w-full flex flex-col justify-between items-center text-center pt-16 pb-10 px-4 overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <img src="/images/product1.jpg" alt="Moscow Anime Streetwear Summer Collection Hero Background" loading="lazy" className="w-full h-full object-cover object-center brightness-75 scale-105" />
+          {heroImages.map((image, index) => (
+            <img
+              key={image}
+              src={image}
+              alt=""
+              aria-hidden="true"
+              loading={index === 0 ? 'eager' : 'lazy'}
+              className={`absolute inset-0 w-full h-full object-cover object-center brightness-75 transition-opacity duration-700 ${index === heroImageIndex ? 'opacity-100' : 'opacity-0'}`}
+            />
+          ))}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30"></div>
         </div>
         <div></div>
