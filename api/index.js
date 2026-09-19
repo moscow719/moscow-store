@@ -3,6 +3,47 @@ import crypto from 'node:crypto';
 const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+const sendTelegramOrderNotification = async order => {
+  const botToken = String(process.env.TELEGRAM_BOT_TOKEN || '');
+  const chatId = String(process.env.TELEGRAM_CHAT_ID || '');
+  if (!botToken || !chatId) return;
+
+  const customer = order.customer || {};
+  const items = Array.isArray(order.items) ? order.items : [];
+  const itemLines = items.map(item => {
+    const quantity = Number(item.quantity) || 0;
+    const price = Number(item.price) || 0;
+    return `- ${item.name || 'Product'} x${quantity} — ${price * quantity} LE`;
+  });
+  const message = [
+    '🛍️ New MOSCOW order',
+    `Order: #${String(order.id).slice(0, 8).toUpperCase()}`,
+    `Customer: ${customer.fullName || 'N/A'}`,
+    `Phone: ${customer.phone || 'N/A'}`,
+    `Address: ${[customer.address, customer.city].filter(Boolean).join(', ') || 'N/A'}`,
+    `Payment: ${order.paymentMethod === 'cod' ? 'Cash on delivery' : 'Online'}`,
+    `Total: ${Number(order.total) || 0} LE`,
+    '',
+    'Items:',
+    ...(itemLines.length ? itemLines : ['- N/A'])
+  ].join('\n');
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: message }),
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!response.ok) {
+      const detail = await response.text();
+      console.error('Telegram order notification failed:', detail || response.statusText);
+    }
+  } catch (error) {
+    console.error('Telegram order notification failed:', error.message);
+  }
+};
+
 const toCamel = key => key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 const toSnake = key => key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 const fromDb = value => Array.isArray(value)
@@ -126,11 +167,14 @@ export default async function handler(req, res) {
         id: crypto.randomUUID(),
         customer: body.customer,
         items: body.items,
+        subtotal: Number(body.subtotal) || 0,
+        total: Number(body.total) || 0,
         paymentMethod,
         status: 'received',
         createdAt: new Date().toISOString()
       };
       await insert('orders', order);
+      await sendTelegramOrderNotification(order);
       return send(res, 201, { orderId: order.id, status: order.status, paymentMethod }, req);
     }
     if (req.method === 'POST' && path === 'payments/intents') {
