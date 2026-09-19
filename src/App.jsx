@@ -703,7 +703,7 @@ export default function App() {
               alt=""
               aria-hidden="true"
               loading={index === 0 ? 'eager' : 'lazy'}
-              className={`absolute inset-0 w-full h-full object-cover object-[center_28%] md:object-[center_22%] brightness-75 transition-opacity duration-700 ${index === heroImageIndex ? 'opacity-100' : 'opacity-0'}`}
+              className={`absolute inset-0 w-full h-full object-cover object-[center_28%] md:object-contain md:object-center brightness-75 transition-opacity duration-700 ${index === heroImageIndex ? 'opacity-100' : 'opacity-0'}`}
             />
           ))}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30"></div>
