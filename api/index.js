@@ -167,14 +167,16 @@ export default async function handler(req, res) {
         id: crypto.randomUUID(),
         customer: body.customer,
         items: body.items,
-        subtotal: Number(body.subtotal) || 0,
-        total: Number(body.total) || 0,
         paymentMethod,
         status: 'received',
         createdAt: new Date().toISOString()
       };
       await insert('orders', order);
-      await sendTelegramOrderNotification(order);
+      await sendTelegramOrderNotification({
+        ...order,
+        subtotal: Number(body.subtotal) || 0,
+        total: Number(body.total) || 0
+      });
       return send(res, 201, { orderId: order.id, status: order.status, paymentMethod }, req);
     }
     if (req.method === 'POST' && path === 'payments/intents') {
