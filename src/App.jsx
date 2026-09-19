@@ -386,7 +386,7 @@ export default function App() {
     }
     const lastOrder = localStorage.getItem('moscow-last-order');
     if (lastOrder) {
-      result.push({ id: `order-${lastOrder}`, message: `تم تسجيل طلبك ${lastOrder} بنجاح`, time: 'آخر طلب', type: 'shipping' });
+      result.push({ id: `order-${lastOrder}`, message: 'تم تسجيل طلبك بنجاح', orderNumber: lastOrder, time: 'آخر طلب', type: 'shipping' });
     }
     return result.map(notification => ({
       ...notification,
@@ -511,7 +511,10 @@ export default function App() {
                           {notif.type === 'stock' ? '🔔' : notif.type === 'cart' ? '🛒' : notif.type === 'coupon' ? '🎁' : '📦'}
                         </span>
                         <div className="flex-grow">
-                          <p className="text-xs text-gray-200">{notif.message}</p>
+                          <p dir="rtl" className="text-xs text-gray-200 text-right" style={{ unicodeBidi: 'plaintext' }}>
+                            {notif.message}
+                            {notif.orderNumber && <><span> </span><bdi dir="ltr" className="font-bold text-purple-300">{notif.orderNumber}</bdi></>}
+                          </p>
                           <span className="text-[10px] text-gray-500">{notif.time}</span>
                         </div>
                         {!notif.read && <span className="w-2 h-2 bg-purple-500 rounded-full"></span>}
