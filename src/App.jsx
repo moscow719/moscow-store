@@ -452,7 +452,7 @@ export default function App() {
               <span className="hidden sm:inline">SEARCH</span>
             </div>
             {showSearchDropdown && (
-              <div className="absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-[340px] sm:w-[340px] bg-[#0d0617] border border-purple-900 shadow-2xl p-4 z-50 rounded-md text-left">
+              <div className="fixed top-[7.2rem] left-2 right-2 w-auto bg-[#0d0617] border border-purple-900 shadow-2xl p-4 z-50 rounded-md text-left sm:absolute sm:top-auto sm:left-auto sm:right-0 sm:mt-3 sm:w-[340px]">
                 <input type="text" placeholder="Search products..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} autoFocus className="w-full bg-[#12071f] border border-purple-800 text-white px-3.5 py-2.5 text-xs outline-none focus:border-purple-500 placeholder-gray-500 rounded" />
                 {searchQuery.trim() !== '' && (
                   <div className="mt-3 max-h-80 overflow-y-auto space-y-2.5" style={{ scrollbarWidth: 'thin' }}>
