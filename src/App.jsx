@@ -676,7 +676,7 @@ export default function App() {
                 <button onClick={() => { setMobileMenuOpen(false); openAuthModal('login'); }} className="text-left p-5 text-lg text-gray-300 hover:bg-purple-900/20 hover:text-purple-300 transition-colors">Log in</button>
               </div>
               <div className="flex gap-8 py-7 text-2xl text-purple-300">
-                <a href="#" aria-label="Instagram" className="hover:text-white transition-colors">◎</a>
+                <a href="https://www.instagram.com/mo0scow.studio" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="hover:text-white transition-colors">◎</a>
                 <a href="#" aria-label="Facebook" className="hover:text-white transition-colors font-bold">f</a>
               </div>
             </nav>

@@ -110,7 +110,7 @@ const FooterContent = ({ timeLeft, setShowAllModal }) => {
           <span className="text-2xl font-black italic tracking-[0.22em] text-white leading-none">MOSCOW</span>
           <p className="text-gray-400 text-xs leading-relaxed">Anime streetwear built for people who actually watch the show. Heavyweight fabric, limited runs, shipped across Egypt.</p>
           <div className="flex items-center gap-4 text-gray-300 pt-2">
-            <a href="#" aria-label="Instagram" className="hover:text-purple-400 cursor-pointer transition-colors">
+            <a href="https://www.instagram.com/mo0scow.studio" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="hover:text-purple-400 cursor-pointer transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" strokeWidth="2"/><path strokeWidth="2" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><path strokeWidth="2" strokeLinecap="round" d="M17.5 6.5h.01"/></svg>
             </a>
             <a href="#" aria-label="Facebook" className="hover:text-purple-400 cursor-pointer transition-colors">
