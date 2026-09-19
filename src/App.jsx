@@ -1081,11 +1081,26 @@ export default function App() {
           </div>
           <div className="max-w-7xl mx-auto w-full px-6 md:px-12 py-10 flex-grow">
             {cart.length === 0 ? (
-              <div className="text-center py-20">
-                <p className="text-gray-400 text-lg mb-4">Your cart is empty</p>
+              <div className="min-h-[62vh] flex flex-col items-center justify-center text-center py-20">
+                <h2 className="text-4xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight text-white">
+                  Your cart is empty
+                </h2>
+                {!currentUser && (
+                  <p className="text-lg sm:text-xl text-gray-200 mt-3">
+                    Have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => { setShowCartModal(false); openAuthModal('login'); }}
+                      className="text-white underline underline-offset-4 hover:text-purple-300 transition-colors"
+                    >
+                      Log in
+                    </button>
+                    {' '}to check out faster.
+                  </p>
+                )}
                 <button
                   onClick={() => setShowCartModal(false)}
-                  className="bg-purple-600 hover:bg-purple-500 hover:-translate-y-0.5 hover:shadow-[0_0_20px_rgba(168,85,247,0.45)] text-white px-6 py-3 rounded text-sm font-bold uppercase transition-all duration-200"
+                  className="mt-12 bg-[#4c2b86] hover:bg-purple-600 hover:-translate-y-0.5 hover:shadow-[0_0_20px_rgba(168,85,247,0.45)] text-white px-10 sm:px-16 py-5 text-xl font-bold uppercase tracking-widest transition-all duration-200"
                 >
                   Continue Shopping
                 </button>
