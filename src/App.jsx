@@ -840,7 +840,15 @@ export default function App() {
               <span className="text-lg font-black italic tracking-[0.22em] text-white leading-none">MOSCOW</span>
               <span className="text-xs font-black tracking-[0.25em] uppercase text-white">/ MEN</span>
             </div>
-            <button onClick={() => setMobileFilterOpen(true)} className="lg:hidden bg-purple-600 text-white px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider">️ Filters</button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowMenModal(false)}
+                className="bg-white text-black px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-purple-300 transition-colors"
+              >
+                Home
+              </button>
+              <button onClick={() => setMobileFilterOpen(true)} className="lg:hidden bg-purple-600 text-white px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider">Filters</button>
+            </div>
           </div>
           <div className="max-w-7xl mx-auto w-full px-6 md:px-12 py-10 space-y-8 flex-grow">
             <div className="space-y-4 border-b border-purple-950 pb-6">
