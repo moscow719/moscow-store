@@ -20,6 +20,7 @@ export default function AdminPanel({ onClose }) {
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
 
   const loadData = async (adminToken = token) => {
     setLoading(true);
@@ -34,7 +35,10 @@ export default function AdminPanel({ onClose }) {
       setProducts(nextProducts);
       setOrders(nextOrders);
       setUsers(nextUsers);
+      setAuthenticated(true);
     } catch (requestError) {
+      setAuthenticated(false);
+      sessionStorage.removeItem('moscow-admin-token');
       setError(requestError.message);
     } finally {
       setLoading(false);
@@ -78,15 +82,15 @@ export default function AdminPanel({ onClose }) {
     }
   };
 
-  if (!token || error === 'Admin authentication required') {
+  if (!authenticated) {
     return (
       <div className="fixed inset-0 z-[70] bg-black/95 flex items-center justify-center p-6">
         <form onSubmit={(event) => { event.preventDefault(); setError(''); loadData(token); }} className="w-full max-w-md bg-[#0d0617] border border-purple-900 rounded-xl p-6 space-y-4">
-          <div className="flex justify-between"><h2 className="text-xl font-black text-white">Admin Login</h2><button type="button" onClick={onClose} className="text-gray-400">×</button></div>
+          <div className="flex justify-between"><h2 className="text-xl font-black text-white">{loading ? 'Checking Admin Access' : 'Admin Login'}</h2><button type="button" onClick={onClose} className="text-gray-400">×</button></div>
           <p className="text-xs text-gray-400">Enter the ADMIN_TOKEN configured on the backend.</p>
-          <input type="password" value={token} onChange={event => setToken(event.target.value)} placeholder="Admin token" className="w-full bg-black border border-purple-900 rounded px-3 py-3 text-white" required />
+          <input type="password" value={token} onChange={event => setToken(event.target.value)} placeholder="Admin token" className="w-full bg-black border border-purple-900 rounded px-3 py-3 text-white" required disabled={loading} />
           {error && <p className="text-red-400 text-xs">{error}</p>}
-          <button className="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded font-bold">Open Dashboard</button>
+          <button disabled={loading} className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white py-3 rounded font-bold">{loading ? 'Checking...' : 'Open Dashboard'}</button>
         </form>
       </div>
     );
