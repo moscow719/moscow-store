@@ -40,12 +40,11 @@ export default function App() {
   const bestSellersScrollRef = useRef(null);
   const [activeTab, setActiveTab] = useState('T-SHIRTS');
   const heroImages = [
-    '/images/product1.jpg',
     '/images/product2.jpg',
-    '/images/Caps2.jpg',
-    '/images/Caps3.jpg',
+    '/images/product3.jpg',
+    '/images/Caps4.jpg',
     '/images/Pants1.jpg',
-    '/images/Pants2.jpg'
+    '/images/Pants3.jpg'
   ];
   const [heroImageIndex, setHeroImageIndex] = useState(0);
 
