@@ -8,4 +8,13 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://moscow-store-jh4c.vercel.app',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
 })

@@ -122,7 +122,14 @@ export default async function handler(req, res) {
       }
       const paymentMethod = body.paymentMethod || 'cod';
       if (!['cod', 'online'].includes(paymentMethod)) return send(res, 400, { error: 'Unsupported payment method' }, req);
-      const order = { ...body, id: crypto.randomUUID(), createdAt: new Date().toISOString(), status: 'received', paymentMethod };
+      const order = {
+        id: crypto.randomUUID(),
+        customer: body.customer,
+        items: body.items,
+        paymentMethod,
+        status: 'received',
+        createdAt: new Date().toISOString()
+      };
       await insert('orders', order);
       return send(res, 201, { orderId: order.id, status: order.status, paymentMethod }, req);
     }
