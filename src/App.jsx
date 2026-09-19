@@ -410,16 +410,17 @@ export default function App() {
           ✓ {cartMessage}
         </div>
       )}
-      <div className="bg-[#2d1244] text-xs py-2 border-b border-purple-900/40 w-full overflow-hidden whitespace-nowrap relative flex">
-        <div className="inline-block animate-[marquee_20s_linear_infinite] uppercase font-bold tracking-widest text-purple-200 px-4">
-          CASH ON DELIVERY ACROSS EGYPT — LIMITED DROPS &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; FREE SHIPPING ON ORDERS OVER 1500 LE &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; CASH ON DELIVERY ACROSS EGYPT — LIMITED DROPS
-        </div>
-        <div className="inline-block animate-[marquee2_20s_linear_infinite] uppercase font-bold tracking-widest text-purple-200 px-4 absolute top-2 left-full">
-          CASH ON DELIVERY ACROSS EGYPT — LIMITED DROPS &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; FREE SHIPPING ON ORDERS OVER 1500 LE &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; CASH ON DELIVERY ACROSS EGYPT — LIMITED DROPS
+      <div className="bg-[#2d1244] text-[10px] sm:text-xs py-2 border-b border-purple-900/40 w-full overflow-hidden whitespace-nowrap relative">
+        <div className="flex w-max animate-[marquee_24s_linear_infinite] uppercase font-bold tracking-[0.12em] sm:tracking-widest text-purple-200">
+          <span className="px-4">
+            CASH ON DELIVERY ACROSS EGYPT &nbsp;|&nbsp; FREE SHIPPING ON ORDERS OVER 1500 LE &nbsp;|&nbsp; LIMITED DROPS
+          </span>
+          <span className="px-4" aria-hidden="true">
+            CASH ON DELIVERY ACROSS EGYPT &nbsp;|&nbsp; FREE SHIPPING ON ORDERS OVER 1500 LE &nbsp;|&nbsp; LIMITED DROPS
+          </span>
         </div>
         <style>{`
-          @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-100%); } }
-          @keyframes marquee2 { 0% { transform: translateX(0%); } 100% { transform: translateX(-100%); } }
+          @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
           @keyframes bounceSlow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
         `}</style>
       </div>
@@ -451,7 +452,7 @@ export default function App() {
               <span className="hidden sm:inline">SEARCH</span>
             </div>
             {showSearchDropdown && (
-              <div className="absolute right-0 mt-3 bg-[#0d0617] border border-purple-900 shadow-2xl p-4 z-50 rounded-md text-left" style={{ width: '340px', maxWidth: '90vw' }}>
+              <div className="absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-[340px] sm:w-[340px] bg-[#0d0617] border border-purple-900 shadow-2xl p-4 z-50 rounded-md text-left">
                 <input type="text" placeholder="Search products..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} autoFocus className="w-full bg-[#12071f] border border-purple-800 text-white px-3.5 py-2.5 text-xs outline-none focus:border-purple-500 placeholder-gray-500 rounded" />
                 {searchQuery.trim() !== '' && (
                   <div className="mt-3 max-h-80 overflow-y-auto space-y-2.5" style={{ scrollbarWidth: 'thin' }}>
