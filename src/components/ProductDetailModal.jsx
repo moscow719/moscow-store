@@ -60,7 +60,7 @@ const ProductDetailModal = ({
     ...allProductsCombined.filter(item =>
       item.id !== product.id && !sameCategoryProducts.includes(item)
     )
-  ].slice(0, 4);
+  ].slice(0, 8);
 
   return (
     <div className="fixed inset-0 z-50 bg-black backdrop-blur-md flex flex-col overflow-y-auto">
@@ -291,19 +291,26 @@ const ProductDetailModal = ({
 
         {relatedProducts.length > 0 && (
           <div className="mt-16 pt-12 border-t border-purple-950">
-            <h2 className="text-2xl font-black uppercase tracking-wider mb-8">You May Also Like</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <h2 className="text-2xl md:text-4xl font-black uppercase tracking-tight mb-8">More Like This</h2>
+            <div className="flex gap-4 md:gap-6 overflow-x-auto pb-5 snap-x snap-mandatory [scrollbar-width:thin]">
               {relatedProducts.map((item) => (
                 <div
                   key={item.id}
                   onClick={() => { openProductDetail(item); }}
-                  className="cursor-pointer group"
+                  className="cursor-pointer group shrink-0 w-[72vw] sm:w-[42vw] md:w-[250px] lg:w-[280px] snap-start"
                 >
-                  <div className="aspect-[3/4] bg-[#0d0617] rounded-lg overflow-hidden border border-purple-950 group-hover:border-purple-600 transition-all">
+                  <div className="relative aspect-[3/4] bg-[#0d0617] rounded-lg overflow-hidden border border-purple-950 group-hover:border-purple-600 transition-all">
+                    {item.oldPrice && (
+                      <span className="absolute top-3 left-3 z-10 bg-[#d8bce8] text-black text-[10px] font-black px-2 py-1 uppercase tracking-wider">
+                        Sale
+                      </span>
+                    )}
                     <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                   </div>
                   <h3 className="text-xs font-bold uppercase mt-3 group-hover:text-purple-400 transition-colors">{item.name}</h3>
                   <p className="text-sm text-purple-400 font-bold">LE {item.price}.00</p>
+                  {item.oldPrice && <p className="text-xs text-gray-500 line-through">LE {item.oldPrice}.00</p>}
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mt-1">{item.size || 'S'} &nbsp; {item.category || 'T-SHIRTS'}</p>
                 </div>
               ))}
             </div>
