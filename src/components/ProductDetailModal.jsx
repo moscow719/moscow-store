@@ -80,7 +80,7 @@ const ProductDetailModal = ({
         </button>
       </div>
 
-      <div className="max-w-7xl mx-auto w-full px-0 md:px-12 py-0 md:py-10 flex-grow">
+      <div className="max-w-[1280px] mx-auto w-full px-0 md:px-10 lg:px-16 py-0 md:py-8 flex-grow">
 
         <nav className="hidden md:flex items-center gap-2 text-xs text-gray-400 mb-6">
           <span onClick={() => closeProductDetail()} className="hover:text-purple-400 cursor-pointer">Home</span>
@@ -92,10 +92,10 @@ const ProductDetailModal = ({
           <span className="text-white">{product.name}</span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 md:gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.7fr)_minmax(330px,0.85fr)] gap-0 md:gap-12 xl:gap-20">
 
-          <div className="space-y-0 md:space-y-4">
-            <div className="relative aspect-[3/4] md:rounded-lg overflow-hidden border-b md:border border-purple-950">
+          <div className="space-y-0 md:space-y-4 lg:min-w-0">
+            <div className="relative aspect-[3/4] md:rounded-lg overflow-hidden border-b md:border border-purple-950 lg:aspect-[4/5]">
               {product.tag && (
                 <span className="absolute top-4 left-4 z-10 bg-purple-600 text-xs font-bold px-3 py-1.5 uppercase tracking-widest text-white rounded shadow-lg">
                   {product.tag}
@@ -131,10 +131,10 @@ const ProductDetailModal = ({
             </div>
           </div>
 
-          <div className="space-y-6 px-4 py-6 md:px-0 md:py-0">
+          <div className="space-y-5 px-4 py-6 md:px-0 md:py-0 lg:sticky lg:top-24 lg:self-start lg:pt-2">
             <div>
               <p className="text-[11px] uppercase tracking-widest text-gray-400 mb-1">{product.category || 'T-SHIRT'}</p>
-              <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tight">{product.name}</h1>
+              <h1 className="text-3xl md:text-4xl lg:text-3xl font-black uppercase tracking-tight">{product.name}</h1>
               <div className="flex items-center gap-3 mt-3">
                 <div className="flex items-center gap-1 text-amber-400">
                   <span>★</span>
@@ -156,7 +156,7 @@ const ProductDetailModal = ({
               )}
             </div>
 
-            <p className="text-gray-300 text-sm leading-relaxed border-b border-purple-950 pb-5">
+            <p className="text-gray-300 text-sm leading-relaxed border-b border-purple-950 pb-5 lg:text-xs">
               {product.description || "Premium heavyweight cotton oversized tee featuring exclusive anime artwork. Limited edition drop - no restocks once sold out."}
             </p>
 
@@ -190,12 +190,12 @@ const ProductDetailModal = ({
                 </h3>
                 <button className="text-xs text-purple-400 hover:text-purple-300 underline">Size Guide</button>
               </div>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap lg:flex-nowrap">
                 {['S', 'M', 'L', 'XL', 'XXL'].map((size) => (
                   <button
                     key={size}
                     onClick={() => { setSelectedSize(size); setShowSizeError(false); }}
-                    className={`min-w-[50px] h-12 rounded border-2 text-sm font-bold transition-all ${
+                    className={`min-w-[50px] h-12 rounded border-2 text-sm font-bold transition-all lg:flex-1 ${
                       selectedSize === size
                         ? 'bg-purple-600 border-purple-500 text-white'
                         : showSizeError
