@@ -20,6 +20,7 @@ const ProductDetailModal = ({
   setActiveImage,
   addToCartFromDetail,
   allProductsCombined,
+  cart = [],
   openProductDetail,
   timeLeft,
   setShowAllModal,
@@ -43,12 +44,55 @@ const ProductDetailModal = ({
 
   if (!showProductDetail || !product) return null;
 
+  const price = Number(product.price);
+  const hasValidPrice = product.price !== null && product.price !== '' &&
+    Number.isFinite(price) && price >= 0;
+  const oldPrice = Number(product.oldPrice);
+  const hasDiscount = product.oldPrice !== null && product.oldPrice !== undefined &&
+    product.oldPrice !== '' && Number.isFinite(oldPrice) && oldPrice > price && hasValidPrice;
+  const discount = hasDiscount ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
+  const stockQuantity = Number.isSafeInteger(product.stockQuantity) && product.stockQuantity >= 0
+    ? product.stockQuantity
+    : null;
+  const isOutOfStock = product.inStock === false || stockQuantity === 0;
+  const suppliedSizes = Array.isArray(product.sizes)
+    ? product.sizes
+    : Array.isArray(product.availableSizes)
+      ? product.availableSizes
+      : null;
+  const validSizes = suppliedSizes
+    ? suppliedSizes.map(size => String(size).trim().toUpperCase())
+      .filter(size => /^(XS|S|M|L|XL|XXL|XXXL|ONE SIZE)$/.test(size))
+    : null;
+  const availableSizes = validSizes?.length
+    ? [...new Set(validSizes)]
+    : String(product.category || '').toUpperCase() === 'CAPS' ||
+      String(product.size || '').trim().toUpperCase() === 'ONE SIZE'
+      ? ['ONE SIZE']
+      : ['S', 'M', 'L', 'XL', 'XXL'];
+  const suppliedColors = Array.isArray(product.availableColors)
+    ? product.availableColors
+    : typeof product.color === 'string' && product.color.trim()
+      ? [product.color]
+      : [];
+  const availableColors = [...new Set(suppliedColors
+    .filter(color => typeof color === 'string' && color.trim() && color.length <= 32)
+    .map(color => color.trim()))];
+  const alreadyInCart = cart
+    .filter(item => String(item.id) === String(product.id))
+    .reduce((total, item) => total + item.quantity, 0);
+  const maxAddableQuantity = stockQuantity === null ? Number.MAX_SAFE_INTEGER : Math.max(0, stockQuantity - alreadyInCart);
+  const quantityLimitReached = quantity >= maxAddableQuantity;
+  const formatPrice = value => `LE ${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`;
+
   const isWishlisted = wishlist.some(value =>
     String(value) === String(product.id) ||
     String(value).toLowerCase() === product.name.trim().toLowerCase() ||
     String(value) === `image:${String(product.image || '').toLowerCase().match(/\/([^/]+?)(?:-detail\d+)?\.jpg$/)?.[1] || ''}`
   );
-  const discount = product.oldPrice ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100) : 0;
 
   const sameCategoryProducts = allProductsCombined.filter(item =>
     item.id !== product.id &&
@@ -144,32 +188,45 @@ const ProductDetailModal = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <span className="text-3xl font-black text-white">LE {product.price.toLocaleString()}.00</span>
-              {product.oldPrice && (
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="text-3xl font-black text-white">
+                {hasValidPrice ? formatPrice(price) : 'Price unavailable'}
+              </span>
+              {hasDiscount && (
                 <>
-                  <span className="text-xl text-gray-500 line-through">LE {product.oldPrice.toLocaleString()}.00</span>
+                  <span className="text-xl text-gray-500 line-through">{formatPrice(oldPrice)}</span>
                   <span className="bg-red-500/20 text-red-400 text-sm font-black px-2 py-1 rounded border border-red-500/30">
                     -{discount}%
                   </span>
                 </>
               )}
             </div>
+            <p className={`text-xs font-bold ${isOutOfStock ? 'text-red-400' : stockQuantity !== null && stockQuantity <= 5 ? 'text-amber-300' : 'text-green-400'}`}>
+              {isOutOfStock
+                ? 'Out of stock'
+                : stockQuantity === null
+                  ? 'Available'
+                  : `${stockQuantity} in stock`}
+            </p>
 
             <p className="text-gray-300 text-sm leading-relaxed border-b border-purple-950 pb-5 lg:text-xs">
               {product.description || "Premium heavyweight cotton oversized tee featuring exclusive anime artwork. Limited edition drop - no restocks once sold out."}
             </p>
 
-            {product.availableColors && product.availableColors.length > 0 && (
+            {availableColors.length > 0 && (
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-widest text-gray-300 mb-3">
                   Color: <span className="text-purple-400">{selectedColor || 'Select a color'}</span>
                 </h3>
                 <div className="flex gap-3">
-                  {product.availableColors.map((color, idx) => (
+                  {availableColors.map((color, idx) => {
+                    return (
                     <button
-                      key={idx}
+                      type="button"
+                      key={`${color}-${idx}`}
                       onClick={() => setSelectedColor(color)}
+                      aria-label={`Select ${color}`}
+                      aria-pressed={selectedColor === color}
                       className={`w-10 h-10 rounded-full border-2 transition-all ${
                         selectedColor === color
                           ? 'border-purple-500 ring-2 ring-purple-500/50'
@@ -178,7 +235,8 @@ const ProductDetailModal = ({
                       style={{ backgroundColor: color }}
                       title={color}
                     />
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -191,8 +249,9 @@ const ProductDetailModal = ({
                 <button className="text-xs text-purple-400 hover:text-purple-300 underline">Size Guide</button>
               </div>
               <div className="flex gap-2 flex-wrap lg:flex-nowrap">
-                {['S', 'M', 'L', 'XL', 'XXL'].map((size) => (
+                {availableSizes.map((size) => (
                   <button
+                    type="button"
                     key={size}
                     onClick={() => { setSelectedSize(size); setShowSizeError(false); }}
                     className={`min-w-[50px] h-12 rounded border-2 text-sm font-bold transition-all lg:flex-1 ${
@@ -201,7 +260,8 @@ const ProductDetailModal = ({
                         : showSizeError
                         ? 'border-red-500 text-gray-300 hover:border-purple-400'
                         : 'border-purple-950 text-gray-300 hover:border-purple-600'
-                    }`}
+                    } ${isOutOfStock ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    disabled={isOutOfStock}
                   >
                     {size}
                   </button>
@@ -216,6 +276,7 @@ const ProductDetailModal = ({
               <h3 className="text-xs font-bold uppercase tracking-widest text-gray-300 mb-3">Quantity</h3>
               <div className="flex items-center gap-3 bg-[#0d0617] border border-purple-950 rounded-lg w-fit">
                 <button
+                  type="button"
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="w-10 h-10 text-lg font-bold hover:text-purple-400 transition-colors"
                 >
@@ -223,8 +284,10 @@ const ProductDetailModal = ({
                 </button>
                 <span className="w-10 text-center font-bold">{quantity}</span>
                 <button
+                  type="button"
                   onClick={() => setQuantity(quantity + 1)}
-                  className="w-10 h-10 text-lg font-bold hover:text-purple-400 transition-colors"
+                  disabled={quantityLimitReached}
+                  className="w-10 h-10 text-lg font-bold hover:text-purple-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   +
                 </button>
@@ -233,12 +296,15 @@ const ProductDetailModal = ({
 
             <div className="flex gap-2 pt-2">
               <button
+                type="button"
                 onClick={addToCartFromDetail}
-                className="flex-1 bg-[#4c2b86] hover:bg-purple-600 text-white font-black py-4 px-4 uppercase tracking-widest text-sm transition-all shadow-lg hover:shadow-purple-500/50"
+                disabled={isOutOfStock || !hasValidPrice || quantityLimitReached || !selectedSize}
+                className="flex-1 bg-[#4c2b86] hover:bg-purple-600 text-white font-black py-4 px-4 uppercase tracking-widest text-sm transition-all shadow-lg hover:shadow-purple-500/50 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed"
               >
                 Add to Cart
               </button>
               <button
+                type="button"
                 onClick={(e) => toggleWishlist(product.id, e)}
                 className="w-14 h-14 border-2 border-purple-950 hover:border-purple-500 flex items-center justify-center text-2xl transition-all hover:scale-110"
               >

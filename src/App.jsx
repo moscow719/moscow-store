@@ -4,8 +4,77 @@ import ProductCard from './components/ProductCard';
 import FooterContent from './components/FooterContent';
 import ProductDetailModal from './components/ProductDetailModal';
 import AdminPanel from './components/AdminPanel';
-import { products, bestSellers, typeCategories, counts, categoryIcons } from './data/products';
+import { localCatalog, categoryIcons } from './data/products';
 import { fetchOrderStatus, fetchProducts, loginUser, registerUser } from './api';
+
+const readStoredArray = key => {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+};
+
+const readStoredOrderNumber = () => {
+  try {
+    const orderNumber = (localStorage.getItem('moscow-last-order') || '').replace(/^#/, '');
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderNumber)
+      ? orderNumber
+      : '';
+  } catch {
+    return '';
+  }
+};
+
+const promotionEndsAt = Date.parse(import.meta.env.VITE_PROMOTION_ENDS_AT || '');
+const getPromotionTimeLeft = now => {
+  if (!Number.isFinite(promotionEndsAt) || promotionEndsAt <= now) return null;
+  const secondsRemaining = Math.max(0, Math.floor((promotionEndsAt - now) / 1000));
+  return {
+    hours: Math.floor(secondsRemaining / 3600),
+    minutes: Math.floor((secondsRemaining % 3600) / 60),
+    seconds: secondsRemaining % 60
+  };
+};
+
+const normalizeApiCatalog = rows => {
+  const normalized = rows.map(row => {
+    const details = row?.details && typeof row.details === 'object' && !Array.isArray(row.details)
+      ? row.details
+      : {};
+    const id = details.sourceId ?? details.id ?? row?.sourceId ?? row?.id;
+    if (!row || typeof row.name !== 'string' || !row.name.trim() ||
+        row.price === null || row.price === undefined || !Number.isFinite(Number(row.price)) ||
+        id === null || id === undefined || id === '') {
+      throw new Error('The catalog API returned an invalid product');
+    }
+    return {
+      ...details,
+      id,
+      name: String(row.name).trim(),
+      price: Number(row.price),
+      image: row.image || details.image || '',
+      category: row.category || details.category || 'T-SHIRTS',
+      inStock: row.inStock !== false &&
+        !(Number.isInteger(row.stockQuantity ?? details.stockQuantity) && (row.stockQuantity ?? details.stockQuantity) <= 0),
+      _catalogPriority: Number(Boolean(row.category || details.category)) * 4 +
+        Number(Number(row.id) === Number(details.sourceId ?? details.id)) * 2 +
+        Number(Boolean(row.image || details.image)) +
+        Number(Boolean(details.description)),
+      ...(Number.isInteger(row.stockQuantity ?? details.stockQuantity)
+        ? { stockQuantity: row.stockQuantity ?? details.stockQuantity }
+        : {})
+    };
+  });
+  const uniqueByName = new Map();
+  for (const product of normalized) {
+    const key = product.name.toLowerCase();
+    const current = uniqueByName.get(key);
+    if (!current || product._catalogPriority > current._catalogPriority) uniqueByName.set(key, product);
+  }
+  return [...uniqueByName.values()].map(({ _catalogPriority, ...product }) => product);
+};
 
 const getProductIdentity = (item) => {
   if (!item) return '';
@@ -19,21 +88,26 @@ const getProductIdentity = (item) => {
 // ==================== MAIN APP ====================
 export default function App() {
   const [cart, setCart] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('moscow-cart') || '[]');
-    } catch {
-      return [];
-    }
+    const storedCart = readStoredArray('moscow-cart');
+    const validEntries = storedCart.filter(item =>
+      item && typeof item === 'object' && item.id !== undefined && item.id !== null &&
+      typeof item.name === 'string' && Number.isFinite(Number(item.price)) && Number(item.price) >= 0 &&
+      Number.isSafeInteger(Number(item.quantity)) && Number(item.quantity) > 0
+    );
+    return validEntries.map(item => ({
+      ...item,
+      cartId: String(item.cartId || `${item.id}-${item.size || 'One Size'}-${item.color || ''}`),
+      quantity: Number(item.quantity),
+      price: Number(item.price)
+    }));
   });
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const [wishlist, setWishlist] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('moscow-wishlist') || '[]');
-    } catch {
-      return [];
-    }
+    return readStoredArray('moscow-wishlist')
+      .filter(item => typeof item === 'string' || typeof item === 'number')
+      .map(String);
   });
-  const [remoteProducts, setRemoteProducts] = useState([]);
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [catalogSource, setCatalogSource] = useState('loading');
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState('');
   const scrollRef = useRef(null);
@@ -87,6 +161,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('moscow-user') || 'null'); } catch { return null; }
   });
+  const [lastOrderNumber, setLastOrderNumber] = useState(readStoredOrderNumber);
 
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
@@ -102,19 +177,68 @@ export default function App() {
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationsRef = useRef(null);
   const [readNotificationIds, setReadNotificationIds] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('moscow-read-notifications') || '[]'); } catch { return []; }
+    return readStoredArray('moscow-read-notifications').filter(item => typeof item === 'string');
   });
 
-  const [timeLeft, setTimeLeft] = useState({ hours: 5, minutes: 42, seconds: 18 });
+  const [timeLeft, setTimeLeft] = useState(() => getPromotionTimeLeft(Date.now()));
+
+  const products = catalogSource === 'fallback' ? localCatalog : catalogProducts;
+  const typeCategories = React.useMemo(() => {
+    const categories = {};
+    for (const product of products) {
+      const category = String(product.category || 'T-SHIRTS').toUpperCase();
+      if (!categories[category]) categories[category] = [];
+      categories[category].push(product);
+    }
+    return categories;
+  }, [products]);
+  const categoryCounts = React.useMemo(
+    () => Object.fromEntries(Object.entries(typeCategories).map(([category, items]) => [category, items.length])),
+    [typeCategories]
+  );
+  const bestSellers = React.useMemo(() => [...products]
+    .sort((a, b) => Number(Boolean(b.tag === 'BESTSELLER')) - Number(Boolean(a.tag === 'BESTSELLER')) ||
+      (Number(b.rating) || 0) - (Number(a.rating) || 0))
+    .slice(0, 5), [products]);
+  const cartItems = React.useMemo(() => cart.map(item => {
+    const currentProduct = products.find(product => String(product.id) === String(item.id));
+    if (!currentProduct) return {
+      ...item,
+      catalogAvailable: catalogSource === 'loading' ? null : false,
+      inStock: false
+    };
+    return {
+      ...item,
+      id: currentProduct.id,
+      name: currentProduct.name,
+      price: currentProduct.price,
+      image: currentProduct.image,
+      inStock: currentProduct.inStock !== false &&
+        !(Number.isInteger(currentProduct.stockQuantity) && currentProduct.stockQuantity <= 0),
+      stockQuantity: currentProduct.stockQuantity,
+      catalogAvailable: true
+    };
+  }), [cart, catalogSource, products]);
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const cartSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const cartHasUnavailableItems = cartItems.some(item => !item.catalogAvailable || !item.inStock ||
+    (Number.isInteger(item.stockQuantity) && item.quantity > item.stockQuantity));
 
   useEffect(() => {
     let active = true;
     fetchProducts()
       .then(data => {
-        if (active && Array.isArray(data)) setRemoteProducts(data);
+        if (!Array.isArray(data)) throw new Error('The catalog API returned an invalid response');
+        if (active) {
+          setCatalogProducts(normalizeApiCatalog(data));
+          setCatalogSource('api');
+        }
       })
       .catch(() => {
-        if (active) setProductsError('The catalog API is unavailable. Showing the local catalog.');
+        if (active) {
+          setCatalogSource('fallback');
+          setProductsError('The catalog API is unavailable. Showing the local backup catalog.');
+        }
       })
       .finally(() => {
         if (active) setProductsLoading(false);
@@ -138,40 +262,24 @@ export default function App() {
   }, [wishlist]);
 
   useEffect(() => {
-    const catalog = [...products, ...bestSellers, ...Object.values(typeCategories).flat(), ...remoteProducts];
-    const seen = new Set();
-    const normalized = wishlist.reduce((result, wishlistValue) => {
-      const matchedProduct = catalog.find(item =>
-        String(item.id) === String(wishlistValue) ||
-        String(item.name).trim().toLowerCase() === String(wishlistValue).trim().toLowerCase() ||
-        getProductIdentity(item) === String(wishlistValue)
-      );
-      const identity = getProductIdentity(matchedProduct) || `id:${wishlistValue}`;
-      if (!seen.has(identity)) {
-        seen.add(identity);
-        result.push(identity);
-      }
-      return result;
-    }, []);
-    if (normalized.length !== wishlist.length || normalized.some((value, index) => value !== wishlist[index])) {
-      setWishlist(normalized);
-    }
-  }, [remoteProducts]);
-
-  useEffect(() => {
     localStorage.setItem('moscow-cart', JSON.stringify(cart));
   }, [cart]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        if (prev.hours > 0) return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return prev;
-      });
+    if (lastOrderNumber) localStorage.setItem('moscow-last-order', lastOrderNumber);
+    else localStorage.removeItem('moscow-last-order');
+  }, [lastOrderNumber]);
+
+  useEffect(() => {
+    if (!Number.isFinite(promotionEndsAt) || promotionEndsAt <= Date.now()) return undefined;
+    const timer = window.setInterval(() => {
+      const nextTimeLeft = getPromotionTimeLeft(Date.now());
+      setTimeLeft(nextTimeLeft);
+      if (!nextTimeLeft) {
+        window.clearInterval(timer);
+      }
     }, 1000);
-    return () => clearInterval(timer);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -187,7 +295,7 @@ export default function App() {
   useEffect(() => {
     if (showProductDetail && selectedProduct) {
       setSelectedSize('');
-      setSelectedColor(selectedProduct.availableColors?.[0] || '');
+      setSelectedColor(selectedProduct.availableColors?.[0] || selectedProduct.color || '');
       setQuantity(1);
       setActiveImage(0);
       setShowSizeError(false);
@@ -196,24 +304,24 @@ export default function App() {
 
   const toggleWishlist = (id, e) => {
     if (e) e.stopPropagation();
-    const wishlistItem = [...products, ...bestSellers, ...Object.values(typeCategories).flat(), ...remoteProducts]
-      .find(item => String(item.id) === String(id));
+    const wishlistItem = products.find(item => String(item.id) === String(id));
+    if (!wishlistItem) return;
     const itemName = wishlistItem?.name?.trim().toLowerCase();
     const itemIdentity = getProductIdentity(wishlistItem);
-    const isSelected = wishlist.some(item =>
-      String(item) === String(id) ||
-      (itemName && String(item).toLowerCase() === itemName) ||
-      String(item) === itemIdentity
-    );
-    if (isSelected) {
-      setWishlist(wishlist.filter(item =>
-        String(item) !== String(id) &&
-        (!itemName || String(item).toLowerCase() !== itemName) &&
-        String(item) !== itemIdentity
-      ));
-    } else {
-      setWishlist([...wishlist, itemIdentity || id]);
-    }
+    setWishlist(previous => {
+      const isSelected = previous.some(item =>
+        String(item) === String(id) ||
+        (itemName && String(item).toLowerCase() === itemName) ||
+        String(item) === itemIdentity
+      );
+      return isSelected
+        ? previous.filter(item =>
+          String(item) !== String(id) &&
+          (!itemName || String(item).toLowerCase() !== itemName) &&
+          String(item) !== itemIdentity
+        )
+        : [...previous, String(id)];
+    });
   };
 
   const openProductDetail = (item) => {
@@ -244,34 +352,69 @@ export default function App() {
       setShowSizeError(true);
       return;
     }
-    addToCart(selectedProduct, quantity, selectedSize, selectedColor);
+    if (!addToCart(selectedProduct, quantity, selectedSize, selectedColor)) return;
     setCartMessage(`${quantity}x ${selectedProduct.name} added to cart`);
     closeProductDetail();
   };
 
   const addToCart = (item, qty = 1, size, color) => {
-    if (item?.stopPropagation) {
-      item.stopPropagation();
-      return;
+    if (!item || !Number.isSafeInteger(qty) || qty <= 0) {
+      return false;
     }
-    if (item) {
-      const finalSize = size || item.size || 'One Size';
-      const finalColor = color || item.color || '';
-      const cartId = `${item.id}-${finalSize}-${finalColor}`;
-      setCart(prev => {
-        const existing = prev.find(entry => entry.cartId === cartId);
-        if (existing) return prev.map(entry => entry.cartId === cartId ? { ...entry, quantity: entry.quantity + qty } : entry);
-        return [...prev, { cartId, id: item.id, name: item.name, price: item.price, image: item.image, size: finalSize, color: finalColor, quantity: qty }];
-      });
+    const stockQuantity = Number.isInteger(item.stockQuantity) ? item.stockQuantity : null;
+    if (item.inStock === false || stockQuantity === 0) {
+      setCartMessage(`${item.name} is currently out of stock.`);
+      return false;
     }
+    const finalSize = size || item.size || 'One Size';
+    const finalColor = color || item.color || '';
+    const cartId = `${item.id}-${finalSize}-${finalColor}`;
+    const currentProductQuantity = cartItems
+      .filter(entry => String(entry.id) === String(item.id))
+      .reduce((sum, entry) => sum + entry.quantity, 0);
+    if (stockQuantity !== null && currentProductQuantity + qty > stockQuantity) {
+      setCartMessage(`Only ${stockQuantity} unit(s) of ${item.name} are available.`);
+      return false;
+    }
+    setCart(prev => {
+      const current = prev.find(entry => entry.cartId === cartId);
+      if (current) {
+        return prev.map(entry => entry.cartId === cartId
+          ? { ...entry, quantity: entry.quantity + qty }
+          : entry);
+      }
+      return [...prev, {
+        cartId,
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        image: item.image,
+        size: finalSize,
+        color: finalColor,
+        quantity: qty
+      }];
+    });
     setCartMessage('Product added to cart');
+    return true;
   };
 
-  const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
   const updateCartQuantity = (cartId, change) => {
+    const current = cartItems.find(item => item.cartId === cartId);
+    if (!current) return;
+    const nextQuantity = current.quantity + change;
+    const productQuantity = cartItems
+      .filter(item => String(item.id) === String(current.id))
+      .reduce((sum, item) => sum + item.quantity, 0);
+    if (change > 0 && !current.inStock) {
+      setCartMessage(`${current.name} is currently out of stock.`);
+      return;
+    }
+    if (change > 0 && Number.isInteger(current.stockQuantity) && productQuantity + 1 > current.stockQuantity) {
+      setCartMessage(`Only ${current.stockQuantity} unit(s) are available.`);
+      return;
+    }
     setCart(prev => prev
-      .map(item => item.cartId === cartId ? { ...item, quantity: Math.max(0, item.quantity + change) } : item)
+      .map(item => item.cartId === cartId ? { ...item, quantity: nextQuantity } : item)
       .filter(item => item.quantity > 0));
   };
 
@@ -293,16 +436,7 @@ export default function App() {
     if (ref.current) ref.current.scrollBy({ left: 300, behavior: 'smooth' });
   };
 
-  const allProductsCombined = React.useMemo(() => {
-    const seen = new Set();
-    const source = [...products, ...bestSellers, ...Object.values(typeCategories).flat(), ...remoteProducts];
-    return source.filter(item => {
-      const normalizedName = item.name.toLowerCase().trim();
-      if (seen.has(normalizedName)) return false;
-      seen.add(normalizedName);
-      return true;
-    });
-  }, [remoteProducts]);
+  const allProductsCombined = products;
 
   const filteredSearchProducts = searchQuery.trim() === '' ? [] : allProductsCombined.filter(item =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -314,8 +448,9 @@ export default function App() {
       String(wishlistId) === getProductIdentity(item)
     )
   ).filter((item, index, list) =>
-    list.findIndex(candidate => getProductIdentity(candidate) === getProductIdentity(item)) === index
+    list.findIndex(candidate => String(candidate.id) === String(item.id)) === index
   );
+  const wishlistCount = wishlistProducts.length;
 
   const toggleSizeFilter = (size) => {
     if (selectedSizes.includes(size)) setSelectedSizes(selectedSizes.filter(s => s !== size));
@@ -327,10 +462,10 @@ export default function App() {
     else setSelectedColors([...selectedColors, color]);
   };
 
-  const allMenProducts = Object.values(typeCategories).flat();
+  const allMenProducts = products;
 
   const getFilteredMenProducts = () => {
-    let result = menSubCategory === 'ALL' ? allMenProducts : (typeCategories[menSubCategory] || []);
+    let result = [...(menSubCategory === 'ALL' ? allMenProducts : (typeCategories[menSubCategory] || []))];
     if (selectedSizes.length > 0) result = result.filter(item => item.size && selectedSizes.includes(item.size));
     if (selectedColors.length > 0) result = result.filter(item => item.color && selectedColors.includes(item.color));
     if (availability === 'IN_STOCK') result = result.filter(item => item.inStock === true);
@@ -346,7 +481,7 @@ export default function App() {
 
   const handleTrackOrder = async () => {
     const orderId = trackOrderNumber.trim().replace(/^#/, '');
-    if (!orderId) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId)) {
       setTrackOrderError('Enter the full order number from your confirmation.');
       return;
     }
@@ -354,7 +489,12 @@ export default function App() {
     setTrackOrderError('');
     setOrderStatus(null);
     try {
-      setOrderStatus(await fetchOrderStatus(orderId));
+      const result = await fetchOrderStatus(orderId);
+      if (!result || result.orderId?.toLowerCase() !== orderId.toLowerCase() ||
+          !['received', 'processing', 'shipped', 'delivered', 'cancelled'].includes(result.status)) {
+        throw new Error('The tracking service returned an invalid order status.');
+      }
+      setOrderStatus(result);
     } catch (error) {
       setTrackOrderError(error.message);
     } finally {
@@ -403,24 +543,38 @@ export default function App() {
   const notifications = React.useMemo(() => {
     const result = [];
     if (cartCount > 0) {
-      result.push({ id: 'cart', message: `عندك ${cartCount} منتج في السلة`, time: 'الآن', type: 'cart' });
+      result.push({ id: `cart-${cartCount}`, message: `عندك ${cartCount} منتج في السلة`, time: 'الآن', type: 'cart' });
     }
-    if (wishlist.length > 0) {
-      result.push({ id: 'wishlist', message: `عندك ${wishlist.length} منتج في قائمة المفضلة`, time: 'الآن', type: 'stock' });
+    if (wishlistCount > 0) {
+      result.push({ id: `wishlist-${wishlistCount}`, message: `عندك ${wishlistCount} منتج في قائمة المفضلة`, time: 'الآن', type: 'wishlist' });
     }
-    const lastOrder = localStorage.getItem('moscow-last-order');
-    if (lastOrder) {
-      result.push({ id: `order-${lastOrder}`, message: 'تم تسجيل طلبك بنجاح', orderNumber: lastOrder, time: 'آخر طلب', type: 'shipping' });
+    if (lastOrderNumber) {
+      result.push({ id: `order-${lastOrderNumber}`, message: 'تم تسجيل طلبك بنجاح', orderNumber: lastOrderNumber, time: 'آخر طلب', type: 'shipping' });
     }
     return result.map(notification => ({
       ...notification,
       read: readNotificationIds.includes(notification.id)
     }));
-  }, [cartCount, wishlist.length, readNotificationIds]);
+  }, [cartCount, wishlistCount, lastOrderNumber, readNotificationIds]);
   const unreadCount = notifications.filter(notification => !notification.read).length;
 
   const markAsRead = (id) => {
     setReadNotificationIds(prev => prev.includes(id) ? prev : [...prev, id]);
+  };
+
+  const openNotification = notification => {
+    markAsRead(notification.id);
+    setShowNotifications(false);
+    if (notification.type === 'cart') {
+      setShowCartModal(true);
+    } else if (notification.type === 'wishlist') {
+      setShowWishlistModal(true);
+    } else if (notification.orderNumber) {
+      setTrackOrderNumber(notification.orderNumber);
+      setOrderStatus(null);
+      setTrackOrderError('');
+      setShowTrackOrderModal(true);
+    }
   };
 
   return (
@@ -510,30 +664,43 @@ export default function App() {
           </div>
 
           <div className="relative" ref={notificationsRef}>
-            <div onClick={() => { setShowNotifications(!showNotifications); setShowSearchDropdown(false); setShowAccountDropdown(false); }} className="cursor-pointer hover:text-purple-400 flex items-center gap-1.5 relative">
+            <button
+              type="button"
+              onClick={() => { setShowNotifications(!showNotifications); setShowSearchDropdown(false); setShowAccountDropdown(false); }}
+              aria-label={`Notifications, ${unreadCount} unread`}
+              aria-expanded={showNotifications}
+              className="cursor-pointer hover:text-purple-400 flex items-center gap-1.5 relative"
+            >
               <span className="text-base">🔔</span>
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
                   {unreadCount}
                 </span>
               )}
-            </div>
+            </button>
             {showNotifications && (
               <div className="absolute right-0 mt-3 bg-[#0d0617] border border-purple-950 shadow-2xl z-50 rounded-md overflow-hidden text-white text-left" style={{ width: '320px', maxWidth: '90vw' }}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-purple-950 bg-[#10061d]">
                   <h3 className="text-xs font-extrabold tracking-wider uppercase">Notifications</h3>
-                  <button onClick={() => setReadNotificationIds(notifications.map(n => n.id))} className="text-[10px] text-purple-400 hover:text-purple-300">Mark all read</button>
+                  <button
+                    onClick={() => setReadNotificationIds(previous => [...new Set([...previous, ...notifications.map(notification => notification.id)])])}
+                    disabled={unreadCount === 0}
+                    className="text-[10px] text-purple-400 hover:text-purple-300 disabled:text-gray-600 disabled:cursor-default"
+                  >
+                    Mark all read
+                  </button>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length > 0 ? notifications.map((notif) => (
-                    <div
+                    <button
+                      type="button"
                       key={notif.id}
-                      onClick={() => markAsRead(notif.id)}
-                      className={`px-4 py-3 border-b border-purple-950/50 hover:bg-[#140822] cursor-pointer transition-colors ${!notif.read ? 'bg-[#1a0a2e]' : ''}`}
+                      onClick={() => openNotification(notif)}
+                      className={`w-full text-left px-4 py-3 border-b border-purple-950/50 hover:bg-[#140822] cursor-pointer transition-colors ${!notif.read ? 'bg-[#1a0a2e]' : ''}`}
                     >
                       <div className="flex items-start gap-2">
                         <span className="text-sm">
-                          {notif.type === 'stock' ? '🔔' : notif.type === 'cart' ? '🛒' : notif.type === 'coupon' ? '🎁' : '📦'}
+                          {notif.type === 'wishlist' ? '❤️' : notif.type === 'cart' ? '🛒' : notif.type === 'coupon' ? '🎁' : '📦'}
                         </span>
                         <div className="flex-grow">
                           <p dir="rtl" className="text-xs text-gray-200 text-right" style={{ unicodeBidi: 'plaintext' }}>
@@ -544,9 +711,9 @@ export default function App() {
                         </div>
                         {!notif.read && <span className="w-2 h-2 bg-purple-500 rounded-full"></span>}
                       </div>
-                    </div>
+                    </button>
                   )) : (
-                    <p className="px-4 py-8 text-center text-xs text-gray-500">لا توجد إشعارات جديدة</p>
+                    <p className="px-4 py-8 text-center text-xs text-gray-500">لا توجد إشعارات</p>
                   )}
                 </div>
               </div>
@@ -576,7 +743,7 @@ export default function App() {
                     <span>📦</span> Track Order
                   </div>
                   <div onClick={() => { setShowAccountDropdown(false); setShowWishlistModal(true); }} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-gray-200 flex items-center gap-2">
-                    <span>❤️</span> Wishlist ({wishlist.length})
+                    <span>❤️</span> Wishlist ({wishlistCount})
                   </div>
                   <div onClick={() => setShowAccountDropdown(false)} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-gray-200 flex items-center gap-2">
                     <span>🔄</span> Returns
@@ -587,9 +754,14 @@ export default function App() {
                   {currentUser && <div onClick={() => { localStorage.removeItem('moscow-user'); setCurrentUser(null); setShowAccountDropdown(false); }} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-red-400 flex items-center gap-2">
                     <span>🚪</span> Logout
                   </div>}
-                  <div onClick={() => { setShowAccountDropdown(false); setShowAdminPanel(true); }} className="px-4 py-3 hover:bg-[#140822] cursor-pointer text-purple-300 flex items-center gap-2">
-                    <span>⚙️</span> Admin Panel
-                  </div>
+                  <div className="border-t border-purple-800/80 my-1" />
+                  <button
+                    type="button"
+                    onClick={() => { setShowAccountDropdown(false); setShowAdminPanel(true); }}
+                    className="w-full text-left px-4 py-3 hover:bg-[#140822] cursor-pointer text-purple-300 flex items-center gap-2"
+                  >
+                    <span>🔐</span> Admin Sign-in
+                  </button>
                 </div>
               </div>
             )}
@@ -600,7 +772,7 @@ export default function App() {
             onClick={() => setShowWishlistModal(true)}
           >
             <span className="text-base">♡</span>
-            <span className="hidden md:inline">WISHLIST ({wishlist.length})</span>
+            <span className="hidden md:inline">WISHLIST ({wishlistCount})</span>
           </div>
           <div
             className="cursor-pointer hover:text-purple-400 flex items-center gap-1.5 relative"
@@ -721,7 +893,7 @@ export default function App() {
                 TRACK ORDER
               </button>
               <button onClick={() => { setMobileMenuOpen(false); setShowWishlistModal(true); }} className="w-full text-left py-5 border-t border-purple-900/50 text-xl tracking-[0.12em] font-light text-gray-300 hover:text-purple-400 transition-colors">
-                WISHLIST ({wishlist.length})
+                WISHLIST ({wishlistCount})
               </button>
               <div className="grid grid-cols-2 border-y border-purple-900/50 mt-2">
                 <button onClick={() => { setMobileMenuOpen(false); setShowWishlistModal(true); }} className="text-left p-5 text-lg text-gray-300 border-r border-purple-900/50 hover:bg-purple-900/20 hover:text-purple-300 transition-colors">Wishlist</button>
@@ -809,7 +981,7 @@ export default function App() {
             <h2 className="text-4xl md:text-5xl font-black italic tracking-tight uppercase text-white">DROPS SELL OUT FAST</h2>
             <p className="text-gray-300 text-sm md:text-base font-normal leading-relaxed">Every design is a limited run. No restocks, no second chances — when it's gone, it's gone.</p>
 
-            <div className="flex items-center gap-3 pt-2">
+            {timeLeft ? <div className="flex items-center gap-3 pt-2" aria-label="Time remaining until the promotion ends">
               <div className="bg-black/60 border border-purple-900 px-3 py-2 rounded text-center min-w-[60px]">
                 <span className="text-lg font-black text-purple-300">{String(timeLeft.hours).padStart(2, '0')}</span>
                 <span className="block text-[9px] text-gray-400 uppercase">Hours</span>
@@ -824,7 +996,7 @@ export default function App() {
                 <span className="text-lg font-black text-purple-300">{String(timeLeft.seconds).padStart(2, '0')}</span>
                 <span className="block text-[9px] text-gray-400 uppercase">Secs</span>
               </div>
-            </div>
+            </div> : <p className="pt-2 text-xs text-gray-500">{Number.isFinite(promotionEndsAt) ? 'This promotion has ended.' : 'A drop schedule will be announced soon.'}</p>}
           </div>
 
           <button onClick={() => setShowAllModal(true)} className="bg-gradient-to-r from-purple-700 to-purple-600 hover:from-purple-600 hover:to-purple-500 text-white font-extrabold py-4 px-10 tracking-widest uppercase text-xs transition-all cursor-pointer shadow-[0_0_20px_rgba(126,34,206,0.4)] hover:shadow-[0_0_30px_rgba(126,34,206,0.6)] rounded-lg transform hover:-translate-y-0.5">
@@ -857,7 +1029,7 @@ export default function App() {
                 <span>{categoryIcons[category]}</span>
                 <span>{category}</span>
                 <span className={`text-xs font-semibold ${isActive ? 'text-purple-400' : 'text-zinc-600'}`}>
-                  {counts[category]}
+                  {categoryCounts[category]}
                 </span>
               </button>
             );
@@ -865,7 +1037,7 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {typeCategories[activeTab].map((item) => (
+          {(typeCategories[activeTab] || []).map((item) => (
             <ProductCard key={item.id} item={item} wishlist={wishlist} toggleWishlist={toggleWishlist} addToCart={addToCart} openProductDetail={openProductDetail} />
           ))}
         </div>
@@ -1019,7 +1191,9 @@ export default function App() {
             {productsError && <p className="text-xs text-amber-300" role="alert">{productsError}</p>}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 max-w-7xl mx-auto w-full px-6 md:px-12 pb-16">
-            {allProductsCombined.length > 0 ? allProductsCombined.map((item, index) => (<ProductCard key={`${item.id}-${index}`} item={item} wishlist={wishlist} toggleWishlist={toggleWishlist} addToCart={addToCart} openProductDetail={openProductDetail} />)) : <p className="col-span-full py-20 text-center text-gray-400">No products available.</p>}
+            {allProductsCombined.length > 0
+              ? allProductsCombined.map((item, index) => <ProductCard key={`${item.id}-${index}`} item={item} wishlist={wishlist} toggleWishlist={toggleWishlist} addToCart={addToCart} openProductDetail={openProductDetail} />)
+              : !productsLoading && <p className="col-span-full py-20 text-center text-gray-400">No products available.</p>}
           </div>
           <FooterContent timeLeft={timeLeft} setShowAllModal={setShowAllModal} />
         </div>
@@ -1043,7 +1217,7 @@ export default function App() {
             </button>
           </div>
           <div className="max-w-7xl mx-auto w-full px-6 md:px-12 py-10 flex-grow">
-            {wishlist.length === 0 ? (
+            {wishlistCount === 0 ? (
               <div className="text-center py-20">
                 <p className="text-gray-400 text-lg mb-4">Your wishlist is empty</p>
                 <button
@@ -1074,7 +1248,7 @@ export default function App() {
                         <p className="text-purple-400 font-bold text-sm mb-3">LE {item.price}.00</p>
                         <div className="flex gap-2">
                           <button
-                            onClick={() => { addToCart(item); toggleWishlist(item.id); }}
+                            onClick={() => { if (addToCart(item)) toggleWishlist(item.id); }}
                             className="flex-1 bg-purple-600 hover:bg-purple-500 hover:-translate-y-0.5 hover:shadow-lg text-white py-2 rounded text-xs font-bold transition-all duration-200"
                           >
                             Add to Cart
@@ -1143,18 +1317,29 @@ export default function App() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-4">
-                  {cart.map((item) => (
+                  {cartItems.map((item) => (
                     <div key={item.cartId} className="flex gap-4 items-center bg-[#0d0617] border border-purple-950 rounded-lg p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-600 hover:shadow-[0_0_22px_rgba(168,85,247,0.25)]">
                       <img src={item.image} alt={item.name} onError={(event) => { event.currentTarget.src = '/images/product1.jpg'; }} className="w-20 h-24 object-cover rounded bg-gray-900 shrink-0 transition-transform duration-300 hover:scale-105" />
                       <div className="flex-grow min-w-0">
                         <h3 className="text-sm font-bold text-white truncate">{item.name}</h3>
                         <p className="text-xs text-gray-400 mt-1">Size: {item.size} {item.color ? `· ${item.color}` : ''}</p>
                         <p className="text-purple-400 font-bold text-sm mt-2">LE {item.price.toLocaleString()}.00</p>
+                        {productsLoading && <p className="text-xs text-gray-400 mt-1">Checking availability…</p>}
+                        {!productsLoading && !item.catalogAvailable && <p className="text-xs text-red-400 mt-1">This item is no longer in the catalog. Remove it to continue.</p>}
+                        {item.catalogAvailable && !item.inStock && <p className="text-xs text-red-400 mt-1">Currently out of stock.</p>}
+                        {Number.isInteger(item.stockQuantity) && item.quantity > item.stockQuantity && <p className="text-xs text-red-400 mt-1">Only {item.stockQuantity} unit(s) remain.</p>}
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => updateCartQuantity(item.cartId, -1)} className="w-8 h-8 rounded border border-purple-800 text-white hover:bg-purple-700 hover:scale-110 transition-all" aria-label={`Decrease ${item.name} quantity`}>−</button>
                         <span className="w-6 text-center text-white font-bold">{item.quantity}</span>
-                        <button onClick={() => updateCartQuantity(item.cartId, 1)} className="w-8 h-8 rounded border border-purple-800 text-white hover:bg-purple-700 hover:scale-110 transition-all" aria-label={`Increase ${item.name} quantity`}>+</button>
+                        <button
+                          onClick={() => updateCartQuantity(item.cartId, 1)}
+                          disabled={!item.inStock || (Number.isInteger(item.stockQuantity) &&
+                            cartItems.filter(cartItem => String(cartItem.id) === String(item.id))
+                              .reduce((sum, cartItem) => sum + cartItem.quantity, 0) >= item.stockQuantity)}
+                          className="w-8 h-8 rounded border border-purple-800 text-white hover:bg-purple-700 hover:scale-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          aria-label={`Increase ${item.name} quantity`}
+                        >+</button>
                       </div>
                       <button onClick={() => removeCartItem(item.cartId)} className="text-red-400 hover:text-red-300 hover:bg-red-950/40 hover:scale-110 rounded text-xl px-2 transition-all" aria-label={`Remove ${item.name}`}>×</button>
                     </div>
@@ -1167,12 +1352,18 @@ export default function App() {
                     <span>LE {cartSubtotal.toLocaleString()}.00</span>
                   </div>
                   <div className="flex justify-between text-lg font-black text-white border-t border-purple-950 mt-4 pt-4">
-                    <span>Total</span>
+                    <span>Subtotal</span>
                     <span className="text-purple-400">LE {cartSubtotal.toLocaleString()}.00</span>
                   </div>
-                  <button onClick={() => { setShowCartModal(false); setShowCheckoutModal(true); }} className="w-full mt-6 bg-purple-600 hover:bg-purple-500 text-white px-6 py-4 rounded text-sm font-bold uppercase">
+                  <button
+                    onClick={() => { setShowCartModal(false); setShowCheckoutModal(true); }}
+                    disabled={productsLoading || cartHasUnavailableItems}
+                    className="w-full mt-6 bg-purple-600 hover:bg-purple-500 text-white px-6 py-4 rounded text-sm font-bold uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Proceed to Checkout
                   </button>
+                  {!productsLoading && cartHasUnavailableItems && <p className="text-xs text-red-400 mt-3">Resolve unavailable or over-stock items before checkout.</p>}
+                  <p className="text-xs text-gray-500 mt-2">Shipping is calculated at checkout.</p>
                 </div>
               </div>
             )}
@@ -1210,6 +1401,7 @@ export default function App() {
         setActiveImage={setActiveImage}
         addToCartFromDetail={addToCartFromDetail}
         allProductsCombined={allProductsCombined}
+        cart={cartItems}
         openProductDetail={openProductDetail}
         timeLeft={timeLeft}
         setShowAllModal={setShowAllModal}
@@ -1266,11 +1458,11 @@ export default function App() {
 
       {showCheckoutModal && (
         <CheckoutModal
-          cart={cart}
+          cart={cartItems}
           cartSubtotal={cartSubtotal}
           onClose={() => setShowCheckoutModal(false)}
           onOrderPlaced={(orderId) => {
-            if (orderId) localStorage.setItem('moscow-last-order', `#${orderId}`);
+            if (orderId) setLastOrderNumber(orderId);
             setCart([]);
           }}
           onTrackOrder={(orderId) => {

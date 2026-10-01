@@ -207,10 +207,74 @@ const idempotentOrderMatches = (order, customer, paymentMethod, lines) => {
   const requestedLines = [...lines].sort((a, b) => `${a.id}|${a.size}|${a.color}`.localeCompare(`${b.id}|${b.size}|${b.color}`));
   return JSON.stringify(savedLines) === JSON.stringify(requestedLines);
 };
-const validProduct = body => body && typeof body.name === 'string' && body.name.trim() &&
-  Number.isFinite(Number(body.price)) && Number(body.price) >= 0;
+const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+const isFiniteNumberField = value =>
+  typeof value === 'number'
+    ? Number.isFinite(value)
+    : typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value));
+const validProduct = body => isPlainObject(body) &&
+  typeof body.name === 'string' && body.name.trim().length > 0 && body.name.trim().length <= 160 &&
+  isFiniteNumberField(body.price) &&
+  Number.isFinite(Number(body.price)) && Number(body.price) >= 0 && Number(body.price) <= 9_999_999_999.99 &&
+  (body.image === undefined || body.image === null ||
+    (typeof body.image === 'string' && body.image.length <= 2048)) &&
+  (body.category === undefined || body.category === null ||
+    (typeof body.category === 'string' && body.category.length <= 80)) &&
+  (body.rating === undefined || (isFiniteNumberField(body.rating) &&
+    Number(body.rating) >= 0 && Number(body.rating) <= 5)) &&
+  (body.inStock === undefined || typeof body.inStock === 'boolean') &&
+  (body.details === undefined || isPlainObject(body.details));
 const validStockQuantity = value => value === null || value === '' ||
-  (Number.isSafeInteger(Number(value)) && Number(value) >= 0);
+  ((typeof value === 'number' || (typeof value === 'string' && /^\d+$/.test(value))) &&
+    Number.isSafeInteger(Number(value)) && Number(value) >= 0);
+const validProductUpdate = body => isPlainObject(body) &&
+  ['name', 'price', 'image', 'category', 'stockQuantity', 'inStock', 'rating', 'details']
+    .some(key => hasOwn(body, key)) &&
+  (!hasOwn(body, 'name') || (typeof body.name === 'string' && body.name.trim().length > 0 && body.name.trim().length <= 160)) &&
+  (!hasOwn(body, 'price') || (isFiniteNumberField(body.price) &&
+    Number(body.price) >= 0 && Number(body.price) <= 9_999_999_999.99)) &&
+  (!hasOwn(body, 'image') || body.image === null ||
+    (typeof body.image === 'string' && body.image.length <= 2048)) &&
+  (!hasOwn(body, 'category') || body.category === null ||
+    (typeof body.category === 'string' && body.category.length <= 80)) &&
+  (!hasOwn(body, 'stockQuantity') || validStockQuantity(body.stockQuantity)) &&
+  (!hasOwn(body, 'inStock') || typeof body.inStock === 'boolean') &&
+  (!hasOwn(body, 'rating') || (isFiniteNumberField(body.rating) &&
+    Number(body.rating) >= 0 && Number(body.rating) <= 5)) &&
+  (!hasOwn(body, 'details') || isPlainObject(body.details));
+const normalizeAdminProduct = (body, current = {}) => {
+  const stockWasProvided = hasOwn(body, 'stockQuantity');
+  const stockQuantity = stockWasProvided
+    ? body.stockQuantity === '' || body.stockQuantity === null ? null : Number(body.stockQuantity)
+    : current.stockQuantity ?? null;
+  const nextProduct = {
+    id: current.id,
+    name: hasOwn(body, 'name') ? body.name.trim() : current.name,
+    price: hasOwn(body, 'price') ? Number(body.price) : Number(current.price),
+    image: hasOwn(body, 'image') ? body.image || null : current.image ?? null,
+    category: hasOwn(body, 'category') ? body.category || null : current.category ?? null,
+    rating: hasOwn(body, 'rating') ? Number(body.rating) : Number(current.rating) || 0,
+    inStock: stockWasProvided && stockQuantity !== null
+      ? stockQuantity > 0
+      : hasOwn(body, 'inStock') ? body.inStock : current.inStock !== false,
+    stockQuantity
+  };
+  const currentDetails = isPlainObject(current.details) ? current.details : {};
+  const submittedDetails = isPlainObject(body.details) ? body.details : {};
+  const details = {
+    ...currentDetails,
+    ...submittedDetails,
+    name: nextProduct.name,
+    price: nextProduct.price,
+    image: nextProduct.image,
+    category: nextProduct.category,
+    rating: nextProduct.rating,
+    inStock: nextProduct.inStock,
+    stockQuantity: nextProduct.stockQuantity
+  };
+  return { ...nextProduct, details };
+};
 const hashPassword = password => new Promise((resolve, reject) => {
   const salt = crypto.randomBytes(16);
   crypto.scrypt(password, salt, 64, { N: 16384, r: 8, p: 1 }, (error, derived) => {
@@ -453,23 +517,54 @@ export default async function handler(req, res) {
           if (!Array.isArray(body.products)) {
             return send(res, 400, { error: 'products must be an array' }, req);
           }
-          if (body.products.some(product => !product || typeof product !== 'object' ||
-              product.id === undefined || product.id === null || product.id === '')) {
-            return send(res, 400, { error: 'each product must have an id' }, req);
+          if (body.products.length > 500) return send(res, 400, { error: 'A catalog sync may contain at most 500 products' }, req);
+          const ids = new Set();
+          for (const product of body.products) {
+            if (!isPlainObject(product) ||
+                !(typeof product.id === 'number' || (typeof product.id === 'string' && product.id.trim() !== '')) ||
+                !Number.isSafeInteger(Number(product.id)) ||
+                Number(product.id) < 1 || !validProduct(product) ||
+                (product.stockQuantity !== undefined && !validStockQuantity(product.stockQuantity))) {
+              return send(res, 400, { error: 'Each synced product requires a valid numeric id, name, price, and stock quantity' }, req);
+            }
+            if (ids.has(Number(product.id))) return send(res, 400, { error: `Duplicate product id ${product.id} in catalog sync` }, req);
+            ids.add(Number(product.id));
           }
-          const products = body.products.map(product => ({
-            id: Number(product.id),
-            name: String(product.name || '').trim(),
-            price: Number(product.price) || 0,
-            image: product.image || null,
-            category: product.category || null,
-            inStock: product.inStock !== false,
-            rating: Number(product.rating) || 0,
-            details: product
-          }));
-          if (products.some(product => !Number.isInteger(product.id) || !product.name)) {
-            return send(res, 400, { error: 'products must use numeric ids and names' }, req);
-          }
+          const existingProducts = await list('products');
+          const existingById = new Map(existingProducts.map(product => [Number(product.id), product]));
+          const products = body.products.map(product => {
+            const existing = existingById.get(Number(product.id));
+            const stockWasProvided = hasOwn(product, 'stockQuantity');
+            const stockQuantity = stockWasProvided
+              ? product.stockQuantity === '' || product.stockQuantity === null ? null : Number(product.stockQuantity)
+              : existing?.stockQuantity ?? null;
+            const inStock = stockQuantity !== null
+              ? stockQuantity > 0
+              : product.inStock !== false;
+            const details = {
+              ...(existing && isPlainObject(existing.details) ? existing.details : {}),
+              ...product,
+              id: product.sourceId ?? product.id,
+              sourceId: product.sourceId ?? product.id,
+              name: product.name.trim(),
+              price: Number(product.price),
+              image: product.image || null,
+              category: product.category || null,
+              inStock,
+              stockQuantity
+            };
+            return {
+              id: Number(product.id),
+              name: product.name.trim(),
+              price: Number(product.price),
+              image: product.image || null,
+              category: product.category || null,
+              inStock,
+              rating: product.rating === undefined ? Number(existing?.rating) || 0 : Number(product.rating),
+              stockQuantity,
+              details
+            };
+          });
           await dbRequest('products', {
             method: 'POST',
             query: { on_conflict: 'id' },
@@ -486,38 +581,20 @@ export default async function handler(req, res) {
           if (body.stockQuantity !== undefined && !validStockQuantity(body.stockQuantity)) {
             return send(res, 400, { error: 'stockQuantity must be a non-negative whole number or empty' }, req);
           }
-          const stockQuantity = body.stockQuantity === undefined || body.stockQuantity === '' ? null : Number(body.stockQuantity);
-          const product = {
-            ...body,
-            id: Math.max(0, ...products.map(p => Number(p.id) || 0)) + 1,
-            price: Number(body.price),
-            stockQuantity,
-            inStock: stockQuantity === null ? body.inStock !== false : stockQuantity > 0
-          };
+          const id = Math.max(0, ...products.map(product => Number(product.id) || 0)) + 1;
+          const product = normalizeAdminProduct(body);
+          product.id = id;
           return send(res, 201, await insert('products', product), req);
         }
         const id = Number(parts[2]);
+        if (!Number.isSafeInteger(id) || id < 1) return send(res, 400, { error: 'A valid product id is required' }, req);
         if (!products.some(product => Number(product.id) === id)) return send(res, 404, { error: 'Product not found' }, req);
         if (req.method === 'DELETE' && parts.length === 3) return send(res, 200, await remove('products', id), req);
         if ((req.method === 'PATCH' || req.method === 'PUT') && parts.length === 3) {
           const body = await jsonBody(req);
-          if (body.stockQuantity !== undefined && !validStockQuantity(body.stockQuantity)) {
-            return send(res, 400, { error: 'stockQuantity must be a non-negative whole number or empty' }, req);
-          }
-          if (body.price !== undefined && (!Number.isFinite(Number(body.price)) || Number(body.price) < 0)) {
-            return send(res, 400, { error: 'price must be non-negative' }, req);
-          }
-          const stockQuantity = body.stockQuantity === '' ? null : body.stockQuantity;
-          const inventoryUpdate = body.stockQuantity === undefined ? {} : {
-            stockQuantity: stockQuantity === null ? null : Number(stockQuantity),
-            inStock: stockQuantity === null ? body.inStock !== false : Number(stockQuantity) > 0
-          };
-          return send(res, 200, await update('products', id, {
-            ...body,
-            id,
-            ...(body.price !== undefined ? { price: Number(body.price) } : {}),
-            ...inventoryUpdate
-          }), req);
+          if (!validProductUpdate(body)) return send(res, 400, { error: 'Product update contains invalid or unsupported fields' }, req);
+          const current = products.find(product => Number(product.id) === id);
+          return send(res, 200, await update('products', id, normalizeAdminProduct(body, current)), req);
         }
       }
       if (resource === 'orders' && req.method === 'GET' && parts.length === 2) return send(res, 200, await list('orders'), req);
@@ -526,7 +603,7 @@ export default async function handler(req, res) {
         const order = await getOrder(id);
         if (!order) return send(res, 404, { error: 'Order not found' }, req);
         const body = await jsonBody(req);
-        if (!Object.hasOwn(ORDER_STATUSES, body.status)) {
+        if (!isPlainObject(body) || typeof body.status !== 'string' || !Object.hasOwn(ORDER_STATUSES, body.status)) {
           return send(res, 400, { error: 'Invalid order status' }, req);
         }
         if (body.status === order.status) return send(res, 200, order, req);

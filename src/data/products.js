@@ -30,14 +30,6 @@ export const products = [
     }),
   ];
 
-export const bestSellers = [
-    { id: "b1", name: "ULTIMATE BERSERK TEE", price: 750, oldPrice: 1450, image: "/images/product1.jpg", sizes: ["M", "L", "XL", "XXL"], color: "Black", inStock: true, rating: 5.0, tag: "BESTSELLER", availableColors: ["#000", "#fff"], description: "Our #1 bestseller. Berserk-inspired design with premium heavyweight cotton." },
-    { id: "b2", name: "BERSERK ARMOR", price: 750, oldPrice: 1950, image: "/images/product2.jpg", sizes: ["M", "L", "XL", "XXL"], color: "White", inStock: true, rating: 4.9, tag: "BESTSELLER", availableColors: ["#fff", "#7e22ce"], description: "Iconic Berserk armor design. Limited edition with exclusive artwork." },
-    { id: "b3", name: "HISOKA TEE", price: 680, oldPrice: 750, image: "/images/product3.jpg", sizes: ["S", "M", "L", "XL", "XXL"], color: "Purple", inStock: true, rating: 4.7, tag: "SALE", availableColors: ["#7e22ce", "#000"], description: "Hunter x Hunter Hisoka design. Vibrant purple with detailed artwork." },
-    { id: "b4", name: "IGRIS LEGENDARY", price: 795, oldPrice: 1150, image: "/images/product4.jpg", sizes: ["M", "L", "XL", "XXL"], color: "Black", inStock: true, rating: 4.8, tag: "BESTSELLER", availableColors: ["#000", "#dc2626"], description: "Solo Leveling Igris design. Dark and powerful aesthetic." },
-    { id: "b5", name: "PHANTOM TROUPE SPIDERS", price: 680, oldPrice: null, image: "/images/product5.jpg", sizes: ["M", "L", "XL", "XXL"], color: "Red", inStock: false, rating: 4.3, tag: "NEW", availableColors: ["#dc2626", "#000"], description: "Hunter x Hunter Phantom Troupe spider tattoo design. Bold and iconic." },
-  ];
-
 export const typeCategories = {
     "T-SHIRTS": products.map(item => ({ ...item, category: "T-SHIRTS" })),
     "HOODIES": [
@@ -72,3 +64,20 @@ export const counts = Object.fromEntries(
   Object.entries(typeCategories).map(([category, items]) => [category, items.length])
 );
 export const categoryIcons = { "T-SHIRTS": "👕", "HOODIES": "", "JACKETS": "🧥", "PANTS": "", "CAPS": "🧢" };
+
+// Used only when the catalog API is unavailable; category entries take precedence over duplicates.
+const normalizeProductName = product => String(product.name || '').trim().toLowerCase();
+const fallbackCandidates = [
+  ...Object.entries(typeCategories)
+    .filter(([category]) => category !== 'T-SHIRTS')
+    .flatMap(([, items]) => items),
+  ...typeCategories['T-SHIRTS']
+];
+const fallbackNames = new Set();
+
+export const localCatalog = fallbackCandidates.filter(product => {
+  const name = normalizeProductName(product);
+  if (!name || fallbackNames.has(name)) return false;
+  fallbackNames.add(name);
+  return true;
+});

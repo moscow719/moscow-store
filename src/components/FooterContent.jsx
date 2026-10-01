@@ -102,11 +102,11 @@ const FooterContent = ({ timeLeft, setShowAllModal }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center bg-[#12071f] border border-purple-900/60 p-8 rounded-2xl">
         <div className="space-y-3">
-          <span className="text-purple-400 text-xs font-extrabold uppercase tracking-widest">⚡ NEXT DROP COUNTDOWN</span>
+          <span className="text-purple-400 text-xs font-extrabold uppercase tracking-widest">{timeLeft ? '⚡ NEXT DROP COUNTDOWN' : '⚡ DROP UPDATES'}</span>
           <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white">GET THE DROP FIRST</h3>
           <p className="text-gray-400 text-xs md:text-sm">Restock alerts, early access and fan-only discounts before anyone else.</p>
 
-          <div className="flex items-center gap-3 pt-2">
+          {timeLeft ? <div className="flex items-center gap-3 pt-2" aria-label="Time remaining until the promotion ends">
             <div className="bg-black/60 border border-purple-900 px-3 py-2 rounded text-center min-w-[60px]">
               <span className="text-lg font-black text-purple-300">{String(timeLeft.hours).padStart(2, '0')}</span>
               <span className="block text-[9px] text-gray-400 uppercase">Hours</span>
@@ -121,7 +121,7 @@ const FooterContent = ({ timeLeft, setShowAllModal }) => {
               <span className="text-lg font-black text-purple-300">{String(timeLeft.seconds).padStart(2, '0')}</span>
               <span className="block text-[9px] text-gray-400 uppercase">Secs</span>
             </div>
-          </div>
+          </div> : <p className="text-gray-500 text-xs">{Number.isFinite(Date.parse(import.meta.env.VITE_PROMOTION_ENDS_AT || '')) ? 'This promotion has ended.' : 'The next drop schedule will be announced soon.'}</p>}
         </div>
 
         <div className="space-y-3">
