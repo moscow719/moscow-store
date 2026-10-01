@@ -2,6 +2,17 @@ import crypto from 'node:crypto';
 
 const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ORDER_STATUSES = {
+  received: ['processing', 'cancelled'],
+  processing: ['shipped', 'cancelled'],
+  shipped: ['delivered'],
+  delivered: [],
+  cancelled: []
+};
+const MAX_ORDER_LINES = 50;
+const MAX_ITEM_QUANTITY = 99;
+const SHIPPING_FEE_CENTS = 6000;
+const FREE_SHIPPING_THRESHOLD_CENTS = 150000;
 
 const sendTelegramOrderNotification = async order => {
   const botToken = String(process.env.TELEGRAM_BOT_TOKEN || '');
@@ -22,6 +33,8 @@ const sendTelegramOrderNotification = async order => {
     `Phone: ${customer.phone || 'N/A'}`,
     `Address: ${[customer.address, customer.city].filter(Boolean).join(', ') || 'N/A'}`,
     `Payment: ${order.paymentMethod === 'cod' ? 'Cash on delivery' : 'Online'}`,
+    `Subtotal: ${Number(order.subtotal) || 0} LE`,
+    `Shipping: ${Number(order.shipping) || 0} LE`,
     `Total: ${Number(order.total) || 0} LE`,
     '',
     'Items:',
@@ -84,6 +97,12 @@ const insert = async (table, value) => (await dbRequest(table, { method: 'POST',
 const update = async (table, id, value) => (await dbRequest(table, {
   method: 'PATCH', query: { id: `eq.${id}` }, body: value
 }))[0];
+const getOrder = async id => (await dbRequest('orders', { query: { id: `eq.${id}`, limit: '1' } }))[0] || null;
+const updateOrderStatus = async (id, currentStatus, status) => (await dbRequest('orders', {
+  method: 'PATCH',
+  query: { id: `eq.${id}`, status: `eq.${currentStatus}` },
+  body: { status, updatedAt: new Date().toISOString() }
+}))[0] || null;
 const remove = async (table, id) => (await dbRequest(table, {
   method: 'DELETE', query: { id: `eq.${id}` }
 }))[0];
@@ -99,6 +118,67 @@ const jsonBody = async req => {
 };
 
 const publicUser = user => ({ id: user.id, email: user.email, role: user.role || 'customer' });
+const normalizeCustomer = value => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const fields = ['fullName', 'phone', 'address', 'city'];
+  const customer = Object.fromEntries(fields.map(field => [
+    field,
+    typeof value[field] === 'string' ? value[field].trim() : ''
+  ]));
+  customer.notes = typeof value.notes === 'string' ? value.notes.trim() : '';
+  const hasControlCharacters = (text, allowLineBreaks = false) => [...text].some(character => {
+    const code = character.charCodeAt(0);
+    return code === 127 || (code < 32 && !(allowLineBreaks && (code === 9 || code === 10)));
+  });
+  if (customer.fullName.length < 3 || customer.fullName.length > 100 ||
+      hasControlCharacters(customer.fullName)) return null;
+  if (!/^01[0125]\d{8}$/.test(customer.phone)) return null;
+  if (customer.address.length < 5 || customer.address.length > 300 ||
+      hasControlCharacters(customer.address)) return null;
+  if (customer.city.length < 2 || customer.city.length > 100 ||
+      hasControlCharacters(customer.city)) return null;
+  if (customer.notes.length > 500 || hasControlCharacters(customer.notes, true)) return null;
+  return customer;
+};
+const normalizeOrderLines = value => {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_ORDER_LINES) return null;
+  const variants = new Map();
+  for (const line of value) {
+    if (!line || typeof line !== 'object' || Array.isArray(line) ||
+        (typeof line.id !== 'string' && typeof line.id !== 'number') ||
+        String(line.id).trim().length === 0 || String(line.id).length > 64 ||
+        !Number.isSafeInteger(line.quantity) || line.quantity < 1 || line.quantity > MAX_ITEM_QUANTITY) {
+      return null;
+    }
+    const size = line.size === undefined || line.size === null ? '' : String(line.size).trim().toUpperCase();
+    const color = line.color === undefined || line.color === null ? '' : String(line.color).trim();
+    if (size.length > 20 || (size && !/^(XS|S|M|L|XL|XXL|XXXL|ONE SIZE)$/.test(size))) return null;
+    if (color.length > 32 || [...color].some(character => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127;
+    })) return null;
+    const key = `${String(line.id)}|${size}|${color}`;
+    const previous = variants.get(key);
+    const quantity = (previous?.quantity || 0) + line.quantity;
+    if (quantity > MAX_ITEM_QUANTITY) return null;
+    variants.set(key, { id: String(line.id).trim(), size, color, quantity });
+  }
+  return [...variants.values()];
+};
+const idempotentOrderMatches = (order, customer, paymentMethod, lines) => {
+  const savedCustomer = normalizeCustomer(order?.customer);
+  if (!order || order.paymentMethod !== paymentMethod ||
+      JSON.stringify(savedCustomer) !== JSON.stringify(customer) ||
+      !Array.isArray(order.items)) return false;
+  const savedLines = order.items.map(item => ({
+    id: String(item.clientProductId ?? item.id ?? item.productId ?? ''),
+    size: String(item.size || '').toUpperCase(),
+    color: String(item.color || ''),
+    quantity: Number(item.quantity)
+  })).sort((a, b) => `${a.id}|${a.size}|${a.color}`.localeCompare(`${b.id}|${b.size}|${b.color}`));
+  const requestedLines = [...lines].sort((a, b) => `${a.id}|${a.size}|${a.color}`.localeCompare(`${b.id}|${b.size}|${b.color}`));
+  return JSON.stringify(savedLines) === JSON.stringify(requestedLines);
+};
 const validProduct = body => body && typeof body.name === 'string' && body.name.trim() &&
   Number.isFinite(Number(body.price)) && Number(body.price) >= 0;
 const hashPassword = password => new Promise((resolve, reject) => {
@@ -137,7 +217,7 @@ const adminAuthorized = req => {
     crypto.timingSafeEqual(actualBuffer, expectedBuffer));
 };
 
-const send = (res, status, body, req) => {
+const send = (res, status, body, _req) => {
   const configuredOrigin = process.env.FRONTEND_ORIGIN;
   const origin = configuredOrigin || '*';
   res.statusCode = status;
@@ -158,26 +238,135 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST' && path === 'orders') {
       const body = await jsonBody(req);
-      if (!body.customer || !Array.isArray(body.items) || !body.items.length) {
-        return send(res, 400, { error: 'Customer and order items are required' }, req);
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return send(res, 400, { error: 'A valid order payload is required' }, req);
       }
+      const customer = normalizeCustomer(body.customer);
+      if (!customer) return send(res, 400, { error: 'Enter a valid name, Egyptian phone number, address, city, and optional notes' }, req);
+      const requestedLines = normalizeOrderLines(body.items);
+      if (!requestedLines) return send(res, 400, { error: 'Order items must contain valid product ids and quantities (1–99, up to 50 lines)' }, req);
       const paymentMethod = body.paymentMethod || 'cod';
       if (!['cod', 'online'].includes(paymentMethod)) return send(res, 400, { error: 'Unsupported payment method' }, req);
+      const idempotencyKey = String(body.idempotencyKey || req.headers['idempotency-key'] || '');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+        return send(res, 400, { error: 'A valid idempotency key is required' }, req);
+      }
+
+      const existingOrder = await getOrder(idempotencyKey);
+      if (existingOrder) {
+        if (!idempotentOrderMatches(existingOrder, customer, paymentMethod, requestedLines)) {
+          return send(res, 409, { error: 'This idempotency key was already used for a different order' }, req);
+        }
+        const subtotalCents = existingOrder.items.reduce((sum, item) =>
+          sum + Math.round(Number(item.price) * 100) * Number(item.quantity), 0);
+        const shippingCents = subtotalCents === 0 || subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS
+          ? 0
+          : SHIPPING_FEE_CENTS;
+        return send(res, 200, {
+          orderId: existingOrder.id,
+          status: existingOrder.status,
+          paymentMethod: existingOrder.paymentMethod,
+          subtotal: subtotalCents / 100,
+          shipping: shippingCents / 100,
+          total: (subtotalCents + shippingCents) / 100,
+          duplicate: true
+        }, req);
+      }
+
+      const catalog = await list('products');
+      const items = [];
+      let subtotalCents = 0;
+      for (const line of requestedLines) {
+        const idMatches = catalog.filter(product => {
+          const details = product.details && typeof product.details === 'object' ? product.details : {};
+          return [product.id, product.sourceId, details.id, details.sourceId]
+            .some(id => id !== undefined && id !== null && String(id) === line.id);
+        });
+        let product = idMatches.find(candidate => String(candidate.id) === line.id) || idMatches[0];
+        if (!product && typeof body.items.find(item => String(item.id) === line.id)?.name === 'string') {
+          const requestedName = body.items.find(item => String(item.id) === line.id).name.trim().toLowerCase();
+          const nameMatches = catalog.filter(candidate => {
+            const details = candidate.details && typeof candidate.details === 'object' ? candidate.details : {};
+            return String(candidate.name || details.name || '').trim().toLowerCase() === requestedName;
+          }).sort((a, b) => Number(a.id) - Number(b.id));
+          product = nameMatches.find(candidate => candidate.inStock === true) || nameMatches[0];
+        }
+        if (!product) return send(res, 404, { error: `Product ${line.id} is not available in the catalog` }, req);
+        if (product.inStock !== true) return send(res, 409, { error: `${product.name} is currently out of stock` }, req);
+        if (Number.isInteger(product.stockQuantity) && line.quantity > product.stockQuantity) {
+          return send(res, 409, { error: `Only ${product.stockQuantity} unit(s) of ${product.name} are available` }, req);
+        }
+
+        const details = product.details && typeof product.details === 'object' ? product.details : {};
+        if (line.color && Array.isArray(details.availableColors) &&
+            !details.availableColors.some(color => String(color).toLowerCase() === line.color.toLowerCase()) &&
+            String(details.color || '').toLowerCase() !== line.color.toLowerCase()) {
+          return send(res, 400, { error: `The selected color is not available for ${product.name}` }, req);
+        }
+        const unitPriceCents = Math.round(Number(product.price) * 100);
+        if (!Number.isSafeInteger(unitPriceCents) || unitPriceCents < 0) {
+          throw new Error(`Invalid catalog price for product ${product.id}`);
+        }
+        const lineTotalCents = unitPriceCents * line.quantity;
+        subtotalCents += lineTotalCents;
+        if (!Number.isSafeInteger(subtotalCents)) return send(res, 400, { error: 'Order total is too large' }, req);
+        items.push({
+          id: line.id,
+          clientProductId: line.id,
+          productId: product.id,
+          name: String(product.name || details.name),
+          image: product.image || details.image || null,
+          price: unitPriceCents / 100,
+          quantity: line.quantity,
+          ...(line.size ? { size: line.size } : {}),
+          ...(line.color ? { color: line.color } : {})
+        });
+      }
+
+      const shippingCents = subtotalCents === 0 || subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS
+        ? 0
+        : SHIPPING_FEE_CENTS;
+      const totals = {
+        subtotal: subtotalCents / 100,
+        shipping: shippingCents / 100,
+        total: (subtotalCents + shippingCents) / 100
+      };
       const order = {
-        id: crypto.randomUUID(),
-        customer: body.customer,
-        items: body.items,
+        id: idempotencyKey,
+        customer,
+        items,
         paymentMethod,
         status: 'received',
         createdAt: new Date().toISOString()
       };
-      await insert('orders', order);
+      try {
+        await insert('orders', order);
+      } catch (error) {
+        const concurrentOrder = await getOrder(idempotencyKey);
+        if (!concurrentOrder) throw error;
+        if (!idempotentOrderMatches(concurrentOrder, customer, paymentMethod, requestedLines)) {
+          return send(res, 409, { error: 'This idempotency key was already used for a different order' }, req);
+        }
+        const subtotalCents = concurrentOrder.items.reduce((sum, item) =>
+          sum + Math.round(Number(item.price) * 100) * Number(item.quantity), 0);
+        const shippingCents = subtotalCents === 0 || subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS
+          ? 0
+          : SHIPPING_FEE_CENTS;
+        return send(res, 200, {
+          orderId: concurrentOrder.id,
+          status: concurrentOrder.status,
+          paymentMethod: concurrentOrder.paymentMethod,
+          subtotal: subtotalCents / 100,
+          shipping: shippingCents / 100,
+          total: (subtotalCents + shippingCents) / 100,
+          duplicate: true
+        }, req);
+      }
       await sendTelegramOrderNotification({
         ...order,
-        subtotal: Number(body.subtotal) || 0,
-        total: Number(body.total) || 0
+        ...totals
       });
-      return send(res, 201, { orderId: order.id, status: order.status, paymentMethod }, req);
+      return send(res, 201, { orderId: order.id, status: order.status, paymentMethod, ...totals }, req);
     }
     if (req.method === 'POST' && path === 'payments/intents') {
       const body = await jsonBody(req);
@@ -266,12 +455,20 @@ export default async function handler(req, res) {
       if (resource === 'orders' && req.method === 'GET' && parts.length === 2) return send(res, 200, await list('orders'), req);
       if (resource === 'orders' && (req.method === 'PATCH' || req.method === 'PUT') && parts.length === 3) {
         const id = parts[2];
-        if (!(await list('orders')).some(order => String(order.id) === id)) return send(res, 404, { error: 'Order not found' }, req);
+        const order = await getOrder(id);
+        if (!order) return send(res, 404, { error: 'Order not found' }, req);
         const body = await jsonBody(req);
-        if (!['received', 'processing', 'shipped', 'delivered', 'cancelled'].includes(body.status)) {
+        if (!Object.hasOwn(ORDER_STATUSES, body.status)) {
           return send(res, 400, { error: 'Invalid order status' }, req);
         }
-        return send(res, 200, await update('orders', id, { status: body.status, updatedAt: new Date().toISOString() }), req);
+        if (body.status === order.status) return send(res, 200, order, req);
+        if (!ORDER_STATUSES[order.status]?.includes(body.status)) {
+          return send(res, 409, { error: `Order cannot transition from ${order.status} to ${body.status}` }, req);
+        }
+        const updatedOrder = await updateOrderStatus(id, order.status, body.status);
+        if (updatedOrder) return send(res, 200, updatedOrder, req);
+        const latestOrder = await getOrder(id);
+        return send(res, 409, { error: `Order status changed concurrently${latestOrder ? ` to ${latestOrder.status}` : ''}` }, req);
       }
       if (resource === 'users' && req.method === 'GET' && parts.length === 2) {
         return send(res, 200, (await list('users')).map(publicUser), req);

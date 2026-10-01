@@ -8,9 +8,11 @@ const errorInputClass = "w-full bg-[#12071f] border border-red-500/70 text-white
 const labelClass = "block text-[11px] font-bold uppercase tracking-wider text-gray-300 mb-1.5";
 
 export default function CheckoutModal({ cart, cartSubtotal, onClose, onOrderPlaced }) {
+  const [idempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [step, setStep] = useState(1);
   const [placing, setPlacing] = useState(false);
   const [orderNumber, setOrderNumber] = useState(null);
+  const [serverTotals, setServerTotals] = useState(null);
   const [orderError, setOrderError] = useState('');
   const [errors, setErrors] = useState({});
 
@@ -57,16 +59,20 @@ export default function CheckoutModal({ cart, cartSubtotal, onClose, onOrderPlac
     setOrderError('');
     try {
       const result = await createOrder({
+        idempotencyKey,
         customer: shipping,
         paymentMethod,
-        items: cart,
-        subtotal: cartSubtotal,
-        total
+        items: cart.map(({ id, name, quantity, size, color }) => ({ id, name, quantity, size, color }))
       });
-      const fakeOrderNumber = '#' + Math.floor(100000 + Math.random() * 900000);
-      setOrderNumber(result.orderId ? `#${result.orderId.slice(0, 8).toUpperCase()}` : fakeOrderNumber);
+      if (!result.orderId) throw new Error('The server did not return an order number');
+      setServerTotals({
+        subtotal: result.subtotal,
+        shipping: result.shipping,
+        total: result.total
+      });
+      setOrderNumber(`#${result.orderId.slice(0, 8).toUpperCase()}`);
       setStep(4);
-      onOrderPlaced(result.orderId ? `#${result.orderId.slice(0, 8).toUpperCase()}` : fakeOrderNumber);
+      onOrderPlaced(`#${result.orderId.slice(0, 8).toUpperCase()}`);
     } catch (error) {
       setOrderError(`We couldn't place your order. ${error.message} Please try again.`);
     } finally {
@@ -348,7 +354,7 @@ export default function CheckoutModal({ cart, cartSubtotal, onClose, onOrderPlac
               </div>
               <div className="flex justify-between text-sm border-t border-purple-950 pt-3">
                 <span className="font-bold uppercase text-white">Total Paid on Delivery</span>
-                <span className="text-purple-400 font-black">LE {total.toLocaleString()}.00</span>
+                <span className="text-purple-400 font-black">LE {(serverTotals?.total ?? total).toLocaleString()}.00</span>
               </div>
             </div>
             <button
