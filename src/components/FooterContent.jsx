@@ -11,6 +11,14 @@ const reviews = [
 // ==================== FooterContent (moved OUTSIDE App) ====================
 const FooterContent = ({ timeLeft, setShowAllModal }) => {
   const [activeReview, setActiveReview] = useState(0);
+  const [openFaq, setOpenFaq] = useState(0);
+  const faqs = [
+    ['How fast will my order arrive?', 'We dispatch quickly and deliver in 2–5 working days anywhere in Egypt. Cairo and Giza usually arrive in 2–3 days.'],
+    ['Can I pay cash on delivery?', 'Yes. Cash on delivery is available nationwide — pay the courier when your order reaches your door.'],
+    ['What if something arrives damaged?', "Message us within 48 hours with a photo and we'll send a free replacement. No arguments, no restocking fees."],
+    ['Can I exchange for a different size?', 'Quick exchanges are available. Check the size guide on the product page first, then contact us through Instagram or WhatsApp if you are between sizes.'],
+    ['Do you make custom designs?', 'We do. Send us your idea and we will quote you — custom personalisation is part of what we do.']
+  ];
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -65,6 +73,32 @@ const FooterContent = ({ timeLeft, setShowAllModal }) => {
           <div className="text-[11px] uppercase font-bold tracking-wider text-gray-300">FREE REPLACEMENT</div>
         </div>
       </div>
+
+      <section className="pt-2">
+        <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight text-white mb-8">
+          Questions, answered
+        </h2>
+        <div className="border-t border-white/70">
+          {faqs.map(([question, answer], index) => (
+            <div key={question} className="border-b border-white/70">
+              <button
+                type="button"
+                onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                className="w-full flex items-center justify-between gap-4 py-6 text-left text-base md:text-xl font-bold uppercase tracking-wide text-white"
+                aria-expanded={openFaq === index}
+              >
+                <span>{question}</span>
+                <span className="text-2xl font-light shrink-0">{openFaq === index ? '−' : '+'}</span>
+              </button>
+              {openFaq === index && (
+                <p className="max-w-4xl pb-6 text-base md:text-xl leading-relaxed text-gray-200">
+                  {answer}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center bg-[#12071f] border border-purple-900/60 p-8 rounded-2xl">
         <div className="space-y-3">
