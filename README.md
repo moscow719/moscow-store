@@ -62,7 +62,11 @@ Existing stock quantities remain untracked (`NULL`) until set in the Admin Panel
 
 ## Product catalog
 
-`GET /api/products` is the storefront's catalog source. `src/data/products.js` supplies the local fallback if the API cannot be reached; the same de-duplicated `localCatalog` is used by `npm run sync:catalog`.
+`GET /api/products` is the storefront's catalog source. `src/data/products.js` supplies the local fallback if the API cannot be reached; the same de-duplicated `localCatalog` is used by `npm run sync:catalog`. Sync reads the current admin catalog first and updates every database record with the matching `sourceId`, so legacy duplicate rows receive the same current name instead of keeping an old placeholder.
+
+Names for products without a supplied catalog title are descriptive labels based on their photos and visible prints; they are not verified supplier or official model names.
+
+To update existing product names immediately in Supabase, run `supabase/migrations/20261001_product_display_names.sql` in the Supabase SQL Editor. The migration changes names only and updates any duplicate rows sharing the same source ID.
 
 Catalog sync requires `ADMIN_TOKEN` and sends batches to `CATALOG_API_URL` or `API_URL`. Set one to the API base URL, including `/api` (for example, `https://your-deployment.vercel.app/api`). If neither is set, the script uses `http://localhost:3000/api`. The script does not load `.env` files automatically; provide the variables in the shell or CI environment.
 
