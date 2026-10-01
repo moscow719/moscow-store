@@ -173,8 +173,8 @@ const normalizeOrderLines = value => {
   const variants = new Map();
   for (const line of value) {
     if (!line || typeof line !== 'object' || Array.isArray(line) ||
-        (typeof line.id !== 'string' && typeof line.id !== 'number') ||
-        String(line.id).trim().length === 0 || String(line.id).length > 64 ||
+        (typeof line.productId !== 'string' && typeof line.productId !== 'number') ||
+        String(line.productId).trim().length === 0 || String(line.productId).length > 64 ||
         !Number.isSafeInteger(line.quantity) || line.quantity < 1 || line.quantity > MAX_ITEM_QUANTITY) {
       return null;
     }
@@ -185,11 +185,11 @@ const normalizeOrderLines = value => {
       const code = character.charCodeAt(0);
       return code < 32 || code === 127;
     })) return null;
-    const key = `${String(line.id)}|${size}|${color}`;
+    const key = `${String(line.productId)}|${size}|${color}`;
     const previous = variants.get(key);
     const quantity = (previous?.quantity || 0) + line.quantity;
     if (quantity > MAX_ITEM_QUANTITY) return null;
-    variants.set(key, { id: String(line.id).trim(), size, color, quantity });
+    variants.set(key, { id: String(line.productId).trim(), size, color, quantity });
   }
   return [...variants.values()];
 };
@@ -254,7 +254,7 @@ const send = (res, status, body, _req) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token, Idempotency-Key');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
   res.end(status === 204 ? '' : JSON.stringify(body));
 };

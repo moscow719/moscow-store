@@ -62,7 +62,7 @@ export default function CheckoutModal({ cart, cartSubtotal, onClose, onOrderPlac
         idempotencyKey,
         customer: shipping,
         paymentMethod,
-        items: cart.map(({ id, name, quantity, size, color }) => ({ id, name, quantity, size, color }))
+        items: cart
       });
       if (!result.orderId) throw new Error('The server did not return an order number');
       setServerTotals({

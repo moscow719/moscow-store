@@ -11,7 +11,37 @@ const request = async (path, options = {}) => {
 };
 
 export const fetchProducts = () => request('/products');
-export const createOrder = (order) => request('/orders', { method: 'POST', body: JSON.stringify(order) });
+export const createOrder = ({ idempotencyKey, customer, paymentMethod, items }) => {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey || '')) {
+    throw new Error('A valid idempotency key is required');
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('At least one product is required');
+  }
+
+  const order = {
+    customer: {
+      fullName: String(customer?.fullName || '').trim(),
+      phone: String(customer?.phone || '').trim(),
+      address: String(customer?.address || '').trim(),
+      city: String(customer?.city || '').trim(),
+      notes: String(customer?.notes || '').trim()
+    },
+    paymentMethod,
+    items: items.map(item => ({
+      productId: item.id,
+      quantity: item.quantity,
+      ...(item.size ? { size: item.size } : {}),
+      ...(item.color ? { color: item.color } : {})
+    }))
+  };
+
+  return request('/orders', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey },
+    body: JSON.stringify(order)
+  });
+};
 export const fetchOrderStatus = (orderId) => request(`/orders/${encodeURIComponent(orderId)}`);
 export const registerUser = (credentials) => request('/auth/register', { method: 'POST', body: JSON.stringify(credentials) });
 export const loginUser = (credentials) => request('/auth/login', { method: 'POST', body: JSON.stringify(credentials) });
