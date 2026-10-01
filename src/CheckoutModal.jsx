@@ -75,7 +75,7 @@ export default function CheckoutModal({ cart, cartSubtotal, onClose, onOrderPlac
       const orderNumber = result.orderId.toUpperCase();
       setOrderNumber(orderNumber);
       setStep(4);
-      onOrderPlaced(result.orderId);
+      onOrderPlaced(result.orderId, cart);
     } catch (error) {
       setOrderError(`We couldn't place your order. ${error.message} Please try again.`);
     } finally {

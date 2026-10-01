@@ -1461,8 +1461,20 @@ export default function App() {
           cart={cartItems}
           cartSubtotal={cartSubtotal}
           onClose={() => setShowCheckoutModal(false)}
-          onOrderPlaced={(orderId) => {
+          onOrderPlaced={(orderId, orderedItems) => {
             if (orderId) setLastOrderNumber(orderId);
+            const orderedWishlistKeys = new Set();
+            for (const item of orderedItems) {
+              if (item.id !== null && item.id !== undefined) {
+                orderedWishlistKeys.add(String(item.id).toLowerCase());
+              }
+              const itemName = String(item.name || '').trim().toLowerCase();
+              if (itemName) orderedWishlistKeys.add(itemName);
+              orderedWishlistKeys.add(getProductIdentity(item));
+            }
+            setWishlist(previous => previous.filter(item =>
+              !orderedWishlistKeys.has(String(item).trim().toLowerCase())
+            ));
             setCart([]);
           }}
           onTrackOrder={(orderId) => {
