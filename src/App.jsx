@@ -621,7 +621,7 @@ export default function App() {
 
       <header className="flex items-center justify-between px-6 md:px-10 py-4 bg-black/90 backdrop-blur-md sticky top-0 z-50 border-b border-purple-900/30">
         <div className="flex items-center gap-6 md:gap-10">
-          <div className="flex items-center md:hidden">
+          <div className="flex items-center">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(open => !open)}
@@ -891,7 +891,7 @@ export default function App() {
       )}
 
       <div
-        className={`fixed inset-0 z-[55] md:hidden transition-opacity duration-300 ${
+        className={`fixed inset-0 z-[55] transition-opacity duration-300 ${
           mobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         aria-hidden={!mobileMenuOpen}
