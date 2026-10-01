@@ -1269,10 +1269,16 @@ export default function App() {
           cart={cart}
           cartSubtotal={cartSubtotal}
           onClose={() => setShowCheckoutModal(false)}
-          onOrderPlaced={(orderNumber) => {
-            if (orderNumber) localStorage.setItem('moscow-last-order', orderNumber);
+          onOrderPlaced={(orderId) => {
+            if (orderId) localStorage.setItem('moscow-last-order', `#${orderId}`);
             setCart([]);
+          }}
+          onTrackOrder={(orderId) => {
+            setTrackOrderNumber(orderId.replace(/^#/, ''));
+            setOrderStatus(null);
+            setTrackOrderError('');
             setShowCheckoutModal(false);
+            setShowTrackOrderModal(true);
           }}
         />
       )}

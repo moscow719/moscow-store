@@ -7,7 +7,7 @@ const inputClass = "w-full bg-[#12071f] border border-purple-900 text-white px-4
 const errorInputClass = "w-full bg-[#12071f] border border-red-500/70 text-white px-4 py-3 text-sm outline-none focus:border-red-500 placeholder-gray-500 rounded transition-colors";
 const labelClass = "block text-[11px] font-bold uppercase tracking-wider text-gray-300 mb-1.5";
 
-export default function CheckoutModal({ cart, cartSubtotal, onClose, onOrderPlaced }) {
+export default function CheckoutModal({ cart, cartSubtotal, onClose, onOrderPlaced, onTrackOrder }) {
   const [idempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [step, setStep] = useState(1);
   const [placing, setPlacing] = useState(false);
@@ -64,16 +64,18 @@ export default function CheckoutModal({ cart, cartSubtotal, onClose, onOrderPlac
         paymentMethod,
         items: cart
       });
-      if (!result.orderId) throw new Error('The server did not return an order number');
+      if (!result.orderId || ![result.subtotal, result.shipping, result.total].every(Number.isFinite)) {
+        throw new Error('The server did not return a valid order confirmation');
+      }
       setServerTotals({
         subtotal: result.subtotal,
         shipping: result.shipping,
         total: result.total
       });
-      const orderNumber = `#${result.orderId.toUpperCase()}`;
+      const orderNumber = result.orderId.toUpperCase();
       setOrderNumber(orderNumber);
       setStep(4);
-      onOrderPlaced(orderNumber);
+      onOrderPlaced(result.orderId);
     } catch (error) {
       setOrderError(`We couldn't place your order. ${error.message} Please try again.`);
     } finally {
@@ -345,26 +347,42 @@ export default function CheckoutModal({ cart, cartSubtotal, onClose, onOrderPlac
                 <span className="text-xs text-gray-400 uppercase font-bold tracking-wide">Order Number</span>
                 <span className="text-purple-400 font-black text-xs sm:text-right break-all">{orderNumber}</span>
               </div>
-              <p className="text-[11px] text-gray-500">Save this full order number to check its delivery status later.</p>
+              <p className="text-[11px] text-gray-500">Use this full order number to check your delivery status.</p>
               <div className="flex justify-between text-xs text-gray-300">
                 <span>Payment</span>
-                <span className="text-white font-bold">Cash on Delivery</span>
+                <span className="text-white font-bold">{paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online payment'}</span>
               </div>
               <div className="flex justify-between text-xs text-gray-300">
                 <span>Shipping to</span>
                 <span className="text-white font-bold text-right">{shipping.city}</span>
               </div>
+              <div className="flex justify-between text-xs text-gray-300">
+                <span>Subtotal</span>
+                <span className="text-white font-bold">LE {serverTotals.subtotal.toLocaleString()}.00</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-300">
+                <span>Shipping</span>
+                <span className="text-white font-bold">{serverTotals.shipping === 0 ? 'FREE' : `LE ${serverTotals.shipping.toLocaleString()}.00`}</span>
+              </div>
               <div className="flex justify-between text-sm border-t border-purple-950 pt-3">
-                <span className="font-bold uppercase text-white">Total Paid on Delivery</span>
-                <span className="text-purple-400 font-black">LE {(serverTotals?.total ?? total).toLocaleString()}.00</span>
+                <span className="font-bold uppercase text-white">Total Due</span>
+                <span className="text-purple-400 font-black">LE {serverTotals.total.toLocaleString()}.00</span>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-lg uppercase tracking-widest text-sm transition-all shadow-lg hover:shadow-purple-500/50"
-            >
-              Continue Shopping
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => onTrackOrder(orderNumber)}
+                className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-lg uppercase tracking-widest text-sm transition-all shadow-lg hover:shadow-purple-500/50"
+              >
+                Track This Order
+              </button>
+              <button
+                onClick={onClose}
+                className="w-full border border-purple-900 hover:bg-purple-950/50 text-white font-bold py-3 rounded-lg uppercase tracking-widest text-xs transition-colors"
+              >
+                Continue Shopping
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -377,6 +395,7 @@ function OrderSummarySidebar({ cart, cartSubtotal, shippingCost, total, cartCoun
     <div className="lg:col-span-1">
       <div className="bg-[#0d0617] border border-purple-950 rounded-lg p-6 space-y-4 sticky top-24">
         <h3 className="text-sm font-black uppercase tracking-widest text-purple-300 border-b border-purple-950 pb-3">Order Summary</h3>
+        <p className="text-[10px] text-gray-500">Estimated from your cart. The final total is confirmed by the server after placing the order.</p>
 
         <div className="max-h-56 overflow-y-auto space-y-3 pr-1">
           {cart.map((c) => (
@@ -396,7 +415,7 @@ function OrderSummarySidebar({ cart, cartSubtotal, shippingCost, total, cartCoun
 
         <div className="space-y-2 text-xs text-gray-300 border-t border-purple-950 pt-4">
           <div className="flex justify-between">
-            <span>Subtotal ({cartCount} item{cartCount !== 1 ? 's' : ''})</span>
+            <span>Estimated subtotal ({cartCount} item{cartCount !== 1 ? 's' : ''})</span>
             <span className="text-white font-bold">LE {cartSubtotal.toLocaleString()}.00</span>
           </div>
           <div className="flex justify-between">
@@ -406,7 +425,7 @@ function OrderSummarySidebar({ cart, cartSubtotal, shippingCost, total, cartCoun
         </div>
 
         <div className="flex justify-between items-center border-t border-purple-950 pt-4">
-          <span className="text-sm font-bold uppercase text-white">Total</span>
+          <span className="text-sm font-bold uppercase text-white">Estimated total</span>
           <span className="text-xl font-black text-purple-400">LE {total.toLocaleString()}.00</span>
         </div>
       </div>
