@@ -70,9 +70,10 @@ export default function CheckoutModal({ cart, cartSubtotal, onClose, onOrderPlac
         shipping: result.shipping,
         total: result.total
       });
-      setOrderNumber(`#${result.orderId.slice(0, 8).toUpperCase()}`);
+      const orderNumber = `#${result.orderId.toUpperCase()}`;
+      setOrderNumber(orderNumber);
       setStep(4);
-      onOrderPlaced(`#${result.orderId.slice(0, 8).toUpperCase()}`);
+      onOrderPlaced(orderNumber);
     } catch (error) {
       setOrderError(`We couldn't place your order. ${error.message} Please try again.`);
     } finally {
@@ -340,10 +341,11 @@ export default function CheckoutModal({ cart, cartSubtotal, onClose, onOrderPlac
               <p className="text-gray-400 text-sm mt-2">Thanks for your order. We'll text you a confirmation shortly.</p>
             </div>
             <div className="bg-[#0d0617] border border-purple-950 rounded-lg p-6 text-left space-y-3">
-              <div className="flex justify-between items-center border-b border-purple-950 pb-3">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 border-b border-purple-950 pb-3">
                 <span className="text-xs text-gray-400 uppercase font-bold tracking-wide">Order Number</span>
-                <span className="text-purple-400 font-black">{orderNumber}</span>
+                <span className="text-purple-400 font-black text-xs sm:text-right break-all">{orderNumber}</span>
               </div>
+              <p className="text-[11px] text-gray-500">Save this full order number to check its delivery status later.</p>
               <div className="flex justify-between text-xs text-gray-300">
                 <span>Payment</span>
                 <span className="text-white font-bold">Cash on Delivery</span>

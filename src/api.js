@@ -12,6 +12,7 @@ const request = async (path, options = {}) => {
 
 export const fetchProducts = () => request('/products');
 export const createOrder = (order) => request('/orders', { method: 'POST', body: JSON.stringify(order) });
+export const fetchOrderStatus = (orderId) => request(`/orders/${encodeURIComponent(orderId)}`);
 export const registerUser = (credentials) => request('/auth/register', { method: 'POST', body: JSON.stringify(credentials) });
 export const loginUser = (credentials) => request('/auth/login', { method: 'POST', body: JSON.stringify(credentials) });
 export const adminRequest = (path, token, options = {}) => request(`/admin/${path}`, {

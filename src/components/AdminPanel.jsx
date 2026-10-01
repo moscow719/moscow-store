@@ -9,7 +9,7 @@ import {
   updateAdminProduct
 } from '../api';
 
-const emptyProduct = { name: '', price: '', image: '/images/product1.jpg', category: 'T-SHIRTS', inStock: true };
+const emptyProduct = { name: '', price: '', image: '/images/product1.jpg', category: 'T-SHIRTS', stockQuantity: '', inStock: true };
 const nextOrderStatuses = {
   received: ['processing', 'cancelled'],
   processing: ['shipped', 'cancelled'],
@@ -113,14 +113,15 @@ export default function AdminPanel({ onClose }) {
         {error && <p className="bg-red-950/50 border border-red-700 text-red-300 p-3 rounded text-sm">{error}</p>}
         <section>
           <h2 className="text-lg font-black mb-4">Products ({products.length})</h2>
-          <form onSubmit={submitProduct} className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-4">
+          <form onSubmit={submitProduct} className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-4">
             <input value={product.name} onChange={event => setProduct({ ...product, name: event.target.value })} placeholder="Name" className="admin-input" required />
             <input type="number" min="0" value={product.price} onChange={event => setProduct({ ...product, price: event.target.value })} placeholder="Price" className="admin-input" required />
+            <input type="number" min="0" step="1" value={product.stockQuantity ?? ''} onChange={event => setProduct({ ...product, stockQuantity: event.target.value })} placeholder="Stock qty (blank = untracked)" className="admin-input" />
             <input value={product.image} onChange={event => setProduct({ ...product, image: event.target.value })} placeholder="Image path" className="admin-input" />
             <input value={product.category} onChange={event => setProduct({ ...product, category: event.target.value })} placeholder="Category" className="admin-input" />
             <button className="bg-purple-600 rounded px-3 py-2 font-bold">{editingId ? 'Save Product' : 'Add Product'}</button>
           </form>
-          <div className="overflow-x-auto border border-purple-950 rounded"><table className="w-full text-left text-sm"><tbody>{products.map(item => <tr key={item.id} className="border-b border-purple-950"><td className="p-3">{item.name}</td><td className="p-3">LE {item.price}</td><td className="p-3">{item.category}</td><td className="p-3 text-right"><button onClick={() => { setEditingId(item.id); setProduct({ ...item }); }} className="text-purple-300 mr-3">Edit</button><button onClick={() => removeProduct(item.id)} className="text-red-400">Delete</button></td></tr>)}</tbody></table></div>
+          <div className="overflow-x-auto border border-purple-950 rounded"><table className="w-full text-left text-sm"><tbody>{products.map(item => <tr key={item.id} className="border-b border-purple-950"><td className="p-3">{item.name}</td><td className="p-3">LE {item.price}</td><td className="p-3">{item.category}</td><td className="p-3">{Number.isInteger(item.stockQuantity) ? item.stockQuantity : 'Untracked'}</td><td className="p-3 text-right"><button onClick={() => { setEditingId(item.id); setProduct({ ...item, stockQuantity: item.stockQuantity ?? '' }); }} className="text-purple-300 mr-3">Edit</button><button onClick={() => removeProduct(item.id)} className="text-red-400">Delete</button></td></tr>)}</tbody></table></div>
         </section>
         <section><h2 className="text-lg font-black mb-4">Orders ({orders.length})</h2><div className="space-y-2">{orders.map(order => <div key={order.id} className="border border-purple-950 rounded p-3 flex flex-wrap gap-3 items-center justify-between text-sm"><span>{order.id.slice(0, 8)} · {order.customer?.fullName || 'Customer'}</span><select value={order.status} onChange={event => changeStatus(order.id, event.target.value)} className="bg-black border border-purple-800 rounded px-2 py-1"><option value={order.status}>{order.status}</option>{(nextOrderStatuses[order.status] || []).map(status => <option key={status} value={status}>{status}</option>)}</select></div>)}</div></section>
         <section><h2 className="text-lg font-black mb-4">Users ({users.length})</h2><div className="space-y-2">{users.map(user => <div key={user.id} className="border border-purple-950 rounded p-3 text-sm">{user.email} <span className="text-gray-500">· {user.role}</span></div>)}</div></section>

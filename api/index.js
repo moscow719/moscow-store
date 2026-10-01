@@ -28,7 +28,7 @@ const sendTelegramOrderNotification = async order => {
   });
   const message = [
     '🛍️ New MOSCOW order',
-    `Order: #${String(order.id).slice(0, 8).toUpperCase()}`,
+    `Order: #${String(order.id).toUpperCase()}`,
     `Customer: ${customer.fullName || 'N/A'}`,
     `Phone: ${customer.phone || 'N/A'}`,
     `Address: ${[customer.address, customer.city].filter(Boolean).join(', ') || 'N/A'}`,
@@ -84,8 +84,12 @@ const dbRequest = async (table, options = {}) => {
     body: options.body === undefined ? undefined : JSON.stringify(toDb(options.body))
   });
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Supabase ${response.status}: ${detail || response.statusText}`);
+    const responseText = await response.text();
+    let detail;
+    try { detail = JSON.parse(responseText); } catch { detail = null; }
+    const error = new Error(detail?.message || `Supabase ${response.status}: ${responseText || response.statusText}`);
+    error.status = detail?.code === 'P0001' ? 409 : 500;
+    throw error;
   }
   if (response.status === 204) return [];
   const text = await response.text();
@@ -98,6 +102,30 @@ const update = async (table, id, value) => (await dbRequest(table, {
   method: 'PATCH', query: { id: `eq.${id}` }, body: value
 }))[0];
 const getOrder = async id => (await dbRequest('orders', { query: { id: `eq.${id}`, limit: '1' } }))[0] || null;
+const getOrderByIdempotencyKey = async key => (await dbRequest('orders', {
+  query: { idempotency_key: `eq.${key}`, limit: '1' }
+}))[0] || null;
+const createOrderTransaction = async order => {
+  if (!supabaseUrl || !supabaseKey) throw new Error('Supabase is not configured');
+  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/place_order`, {
+    method: 'POST',
+    headers: {
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(toDb(order))
+  });
+  if (!response.ok) {
+    const responseText = await response.text();
+    let detail;
+    try { detail = JSON.parse(responseText); } catch { detail = null; }
+    const error = new Error(detail?.message || `Supabase ${response.status}: ${responseText || response.statusText}`);
+    error.status = detail?.code === 'P0001' ? 409 : 500;
+    throw error;
+  }
+  return fromDb(await response.json());
+};
 const updateOrderStatus = async (id, currentStatus, status) => (await dbRequest('orders', {
   method: 'PATCH',
   query: { id: `eq.${id}`, status: `eq.${currentStatus}` },
@@ -181,6 +209,8 @@ const idempotentOrderMatches = (order, customer, paymentMethod, lines) => {
 };
 const validProduct = body => body && typeof body.name === 'string' && body.name.trim() &&
   Number.isFinite(Number(body.price)) && Number(body.price) >= 0;
+const validStockQuantity = value => value === null || value === '' ||
+  (Number.isSafeInteger(Number(value)) && Number(value) >= 0);
 const hashPassword = password => new Promise((resolve, reject) => {
   const salt = crypto.randomBytes(16);
   crypto.scrypt(password, salt, 64, { N: 16384, r: 8, p: 1 }, (error, derived) => {
@@ -235,6 +265,20 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'OPTIONS') return send(res, 204, {}, req);
     if (req.method === 'GET' && path === 'products') return send(res, 200, await list('products'), req);
+    if (req.method === 'GET' && parts[0] === 'orders' && parts.length === 2) {
+      const orderId = parts[1];
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId)) {
+        return send(res, 400, { error: 'Enter the full order number shown in your confirmation' }, req);
+      }
+      const order = await getOrder(orderId);
+      if (!order) return send(res, 404, { error: 'Order not found' }, req);
+      return send(res, 200, {
+        orderId: order.id,
+        status: order.status,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt || null
+      }, req);
+    }
 
     if (req.method === 'POST' && path === 'orders') {
       const body = await jsonBody(req);
@@ -252,7 +296,7 @@ export default async function handler(req, res) {
         return send(res, 400, { error: 'A valid idempotency key is required' }, req);
       }
 
-      const existingOrder = await getOrder(idempotencyKey);
+      const existingOrder = await getOrderByIdempotencyKey(idempotencyKey);
       if (existingOrder) {
         if (!idempotentOrderMatches(existingOrder, customer, paymentMethod, requestedLines)) {
           return send(res, 409, { error: 'This idempotency key was already used for a different order' }, req);
@@ -283,14 +327,6 @@ export default async function handler(req, res) {
             .some(id => id !== undefined && id !== null && String(id) === line.id);
         });
         let product = idMatches.find(candidate => String(candidate.id) === line.id) || idMatches[0];
-        if (!product && typeof body.items.find(item => String(item.id) === line.id)?.name === 'string') {
-          const requestedName = body.items.find(item => String(item.id) === line.id).name.trim().toLowerCase();
-          const nameMatches = catalog.filter(candidate => {
-            const details = candidate.details && typeof candidate.details === 'object' ? candidate.details : {};
-            return String(candidate.name || details.name || '').trim().toLowerCase() === requestedName;
-          }).sort((a, b) => Number(a.id) - Number(b.id));
-          product = nameMatches.find(candidate => candidate.inStock === true) || nameMatches[0];
-        }
         if (!product) return send(res, 404, { error: `Product ${line.id} is not available in the catalog` }, req);
         if (product.inStock !== true) return send(res, 409, { error: `${product.name} is currently out of stock` }, req);
         if (Number.isInteger(product.stockQuantity) && line.quantity > product.stockQuantity) {
@@ -332,41 +368,50 @@ export default async function handler(req, res) {
         total: (subtotalCents + shippingCents) / 100
       };
       const order = {
-        id: idempotencyKey,
-        customer,
-        items,
-        paymentMethod,
-        status: 'received',
-        createdAt: new Date().toISOString()
+        p_order_id: crypto.randomUUID(),
+        p_idempotency_key: idempotencyKey,
+        p_customer: customer,
+        p_items: items,
+        p_payment_method: paymentMethod,
+        p_status: 'received',
+        p_created_at: new Date().toISOString(),
+        p_subtotal: totals.subtotal,
+        p_shipping: totals.shipping,
+        p_total: totals.total
       };
-      try {
-        await insert('orders', order);
-      } catch (error) {
-        const concurrentOrder = await getOrder(idempotencyKey);
-        if (!concurrentOrder) throw error;
-        if (!idempotentOrderMatches(concurrentOrder, customer, paymentMethod, requestedLines)) {
+      const transaction = await createOrderTransaction(order);
+      const savedOrder = transaction.order;
+      if (!transaction.created) {
+        if (!idempotentOrderMatches(savedOrder, customer, paymentMethod, requestedLines)) {
           return send(res, 409, { error: 'This idempotency key was already used for a different order' }, req);
         }
-        const subtotalCents = concurrentOrder.items.reduce((sum, item) =>
-          sum + Math.round(Number(item.price) * 100) * Number(item.quantity), 0);
-        const shippingCents = subtotalCents === 0 || subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS
-          ? 0
-          : SHIPPING_FEE_CENTS;
         return send(res, 200, {
-          orderId: concurrentOrder.id,
-          status: concurrentOrder.status,
-          paymentMethod: concurrentOrder.paymentMethod,
-          subtotal: subtotalCents / 100,
-          shipping: shippingCents / 100,
-          total: (subtotalCents + shippingCents) / 100,
+          orderId: savedOrder.id,
+          status: savedOrder.status,
+          paymentMethod: savedOrder.paymentMethod,
+          subtotal: savedOrder.subtotal,
+          shipping: savedOrder.shipping,
+          total: savedOrder.total,
           duplicate: true
         }, req);
       }
-      await sendTelegramOrderNotification({
-        ...order,
+      const notificationOrder = {
+        id: savedOrder.id,
+        customer,
+        items,
+        paymentMethod,
         ...totals
-      });
-      return send(res, 201, { orderId: order.id, status: order.status, paymentMethod, ...totals }, req);
+      };
+      await sendTelegramOrderNotification(notificationOrder);
+      return send(res, 201, {
+        orderId: savedOrder.id,
+        status: savedOrder.status,
+        paymentMethod,
+        subtotal: savedOrder.subtotal,
+        shipping: savedOrder.shipping,
+        total: savedOrder.total,
+        inventoryTracked: transaction.inventoryTracked
+      }, req);
     }
     if (req.method === 'POST' && path === 'payments/intents') {
       const body = await jsonBody(req);
@@ -438,7 +483,17 @@ export default async function handler(req, res) {
         if (req.method === 'POST' && parts.length === 2) {
           const body = await jsonBody(req);
           if (!validProduct(body)) return send(res, 400, { error: 'name and non-negative price are required' }, req);
-          const product = { ...body, id: Math.max(0, ...products.map(p => Number(p.id) || 0)) + 1, price: Number(body.price) };
+          if (body.stockQuantity !== undefined && !validStockQuantity(body.stockQuantity)) {
+            return send(res, 400, { error: 'stockQuantity must be a non-negative whole number or empty' }, req);
+          }
+          const stockQuantity = body.stockQuantity === undefined || body.stockQuantity === '' ? null : Number(body.stockQuantity);
+          const product = {
+            ...body,
+            id: Math.max(0, ...products.map(p => Number(p.id) || 0)) + 1,
+            price: Number(body.price),
+            stockQuantity,
+            inStock: stockQuantity === null ? body.inStock !== false : stockQuantity > 0
+          };
           return send(res, 201, await insert('products', product), req);
         }
         const id = Number(parts[2]);
@@ -446,10 +501,23 @@ export default async function handler(req, res) {
         if (req.method === 'DELETE' && parts.length === 3) return send(res, 200, await remove('products', id), req);
         if ((req.method === 'PATCH' || req.method === 'PUT') && parts.length === 3) {
           const body = await jsonBody(req);
+          if (body.stockQuantity !== undefined && !validStockQuantity(body.stockQuantity)) {
+            return send(res, 400, { error: 'stockQuantity must be a non-negative whole number or empty' }, req);
+          }
           if (body.price !== undefined && (!Number.isFinite(Number(body.price)) || Number(body.price) < 0)) {
             return send(res, 400, { error: 'price must be non-negative' }, req);
           }
-          return send(res, 200, await update('products', id, { ...body, id, ...(body.price !== undefined ? { price: Number(body.price) } : {}) }), req);
+          const stockQuantity = body.stockQuantity === '' ? null : body.stockQuantity;
+          const inventoryUpdate = body.stockQuantity === undefined ? {} : {
+            stockQuantity: stockQuantity === null ? null : Number(stockQuantity),
+            inStock: stockQuantity === null ? body.inStock !== false : Number(stockQuantity) > 0
+          };
+          return send(res, 200, await update('products', id, {
+            ...body,
+            id,
+            ...(body.price !== undefined ? { price: Number(body.price) } : {}),
+            ...inventoryUpdate
+          }), req);
         }
       }
       if (resource === 'orders' && req.method === 'GET' && parts.length === 2) return send(res, 200, await list('orders'), req);
@@ -477,7 +545,7 @@ export default async function handler(req, res) {
     }
     return send(res, 404, { error: 'Not found' }, req);
   } catch (error) {
-    const status = ['Invalid JSON', 'Payload too large'].includes(error.message) ? 400 : 500;
+    const status = error.status || (['Invalid JSON', 'Payload too large'].includes(error.message) ? 400 : 500);
     return send(res, status, { error: error.message || 'Server error' }, req);
   }
 }

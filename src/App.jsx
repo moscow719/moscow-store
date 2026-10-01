@@ -5,7 +5,7 @@ import FooterContent from './components/FooterContent';
 import ProductDetailModal from './components/ProductDetailModal';
 import AdminPanel from './components/AdminPanel';
 import { products, bestSellers, typeCategories, counts, categoryIcons } from './data/products';
-import { fetchProducts, loginUser, registerUser } from './api';
+import { fetchOrderStatus, fetchProducts, loginUser, registerUser } from './api';
 
 const getProductIdentity = (item) => {
   if (!item) return '';
@@ -96,6 +96,8 @@ export default function App() {
   const [showTrackOrderModal, setShowTrackOrderModal] = useState(false);
   const [trackOrderNumber, setTrackOrderNumber] = useState('');
   const [orderStatus, setOrderStatus] = useState(null);
+  const [trackOrderLoading, setTrackOrderLoading] = useState(false);
+  const [trackOrderError, setTrackOrderError] = useState('');
 
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationsRef = useRef(null);
@@ -342,16 +344,21 @@ export default function App() {
     return result;
   };
 
-  const handleTrackOrder = () => {
-    if (trackOrderNumber.trim()) {
-      const statuses = [
-        { status: "تم استلام الطلب", date: "25 يناير 2026", completed: true },
-        { status: "جاري التجهيز", date: "25 يناير 2026", completed: true },
-        { status: "تم الشحن", date: "26 يناير 2026", completed: false },
-        { status: "في طريقه إليك", date: "-", completed: false },
-        { status: "تم التسليم", date: "-", completed: false }
-      ];
-      setOrderStatus(statuses);
+  const handleTrackOrder = async () => {
+    const orderId = trackOrderNumber.trim().replace(/^#/, '');
+    if (!orderId) {
+      setTrackOrderError('Enter the full order number from your confirmation.');
+      return;
+    }
+    setTrackOrderLoading(true);
+    setTrackOrderError('');
+    setOrderStatus(null);
+    try {
+      setOrderStatus(await fetchOrderStatus(orderId));
+    } catch (error) {
+      setTrackOrderError(error.message);
+    } finally {
+      setTrackOrderLoading(false);
     }
   };
 
@@ -609,7 +616,7 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#0d0617] border border-purple-950 rounded-xl max-w-md w-full p-6 relative">
             <button
-              onClick={() => { setShowTrackOrderModal(false); setOrderStatus(null); setTrackOrderNumber(''); }}
+              onClick={() => { setShowTrackOrderModal(false); setOrderStatus(null); setTrackOrderNumber(''); setTrackOrderError(''); }}
               className="absolute top-4 right-4 text-gray-400 hover:text-white text-xl"
             >
               ✕
@@ -624,36 +631,64 @@ export default function App() {
                     type="text"
                     value={trackOrderNumber}
                     onChange={(e) => setTrackOrderNumber(e.target.value)}
-                    placeholder="Enter order number (e.g., #12345)"
+                    placeholder="Paste the full order number from confirmation"
                     className="w-full bg-[#12071f] border border-purple-900 text-white px-4 py-3 text-sm outline-none focus:border-purple-500 rounded"
                   />
                 </div>
+                {trackOrderError && <p className="text-sm text-red-400">{trackOrderError}</p>}
                 <button
                   onClick={handleTrackOrder}
-                  className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded text-sm uppercase tracking-wider"
+                  disabled={trackOrderLoading}
+                  className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white font-bold py-3 rounded text-sm uppercase tracking-wider"
                 >
-                  Track Order
+                  {trackOrderLoading ? 'Checking order…' : 'Track Order'}
                 </button>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="text-center mb-4">
-                  <p className="text-xs text-gray-400 mb-1">Order {trackOrderNumber}</p>
-                  <p className="text-sm font-bold text-purple-400">In Transit</p>
+                  <p className="text-xs text-gray-400 mb-1 break-all">Order #{orderStatus.orderId}</p>
+                  <p className="text-sm font-bold text-purple-400 uppercase">{orderStatus.status}</p>
                 </div>
-                <div className="space-y-3">
-                  {orderStatus.map((step, idx) => (
-                    <div key={idx} className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step.completed ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-500'}`}>
-                        {step.completed ? '✓' : idx + 1}
-                      </div>
-                      <div className="flex-grow">
-                        <p className={`text-xs font-bold ${step.completed ? 'text-white' : 'text-gray-500'}`}>{step.status}</p>
-                        <p className="text-[10px] text-gray-500">{step.date}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {orderStatus.status === 'cancelled' ? (
+                  <p className="rounded border border-red-900 bg-red-950/40 p-4 text-sm text-red-300">This order has been cancelled.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {[
+                      ['received', 'Order received'],
+                      ['processing', 'Preparing order'],
+                      ['shipped', 'Shipped'],
+                      ['delivered', 'Delivered']
+                    ].map(([status, label], idx, steps) => {
+                      const currentIndex = steps.findIndex(([stepStatus]) => stepStatus === orderStatus.status);
+                      const completed = currentIndex >= idx;
+                      const updatedAt = orderStatus.updatedAt || orderStatus.createdAt;
+                      const eventDate = new Date(status === 'received' ? orderStatus.createdAt : updatedAt);
+                      return (
+                        <div key={status} className="flex items-center gap-3">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${completed ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-500'}`}>
+                            {completed ? '✓' : idx + 1}
+                          </div>
+                          <div className="flex-grow">
+                            <p className={`text-xs font-bold ${completed ? 'text-white' : 'text-gray-500'}`}>{label}</p>
+                            <p className="text-[10px] text-gray-500">
+                              {completed && status === orderStatus.status && !Number.isNaN(eventDate.getTime())
+                                ? eventDate.toLocaleString()
+                                : completed ? 'Completed' : 'Pending'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setOrderStatus(null); setTrackOrderError(''); }}
+                  className="w-full border border-purple-900 py-2 text-xs font-bold uppercase text-purple-300 hover:bg-purple-950/40"
+                >
+                  Track another order
+                </button>
               </div>
             )}
           </div>
