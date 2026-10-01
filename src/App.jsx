@@ -428,6 +428,22 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [cartMessage]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
+
   const scrollLeft = (ref) => {
     if (ref.current) ref.current.scrollBy({ left: -300, behavior: 'smooth' });
   };
@@ -606,7 +622,14 @@ export default function App() {
       <header className="flex items-center justify-between px-6 md:px-10 py-4 bg-black/90 backdrop-blur-md sticky top-0 z-50 border-b border-purple-900/30">
         <div className="flex items-center gap-6 md:gap-10">
           <div className="flex items-center md:hidden">
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-white p-1 cursor-pointer" aria-label="Toggle menu">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(open => !open)}
+              className="text-white p-1 cursor-pointer"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation-drawer"
+            >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/>
               </svg>
@@ -867,10 +890,30 @@ export default function App() {
         </div>
       )}
 
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[55] md:hidden">
-          <button aria-label="Close menu" onClick={() => setMobileMenuOpen(false)} className="absolute inset-0 bg-black/75" />
-          <aside className="relative h-full w-[84%] max-w-sm bg-[#0b0716] text-white shadow-2xl shadow-purple-950/40 overflow-y-auto animate-[slideInLeft_250ms_ease-out]">
+      <div
+        className={`fixed inset-0 z-[55] md:hidden transition-opacity duration-300 ${
+          mobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        aria-hidden={!mobileMenuOpen}
+        inert={!mobileMenuOpen}
+      >
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`absolute inset-0 bg-black/75 transition-opacity duration-300 ${
+              mobileMenuOpen ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+          <aside
+            id="mobile-navigation-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Mobile navigation"
+            className={`relative h-full w-[84%] max-w-sm bg-[#0b0716] text-white shadow-2xl shadow-purple-950/40 overflow-y-auto transition-transform duration-300 ease-out ${
+              mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
             <div className="flex justify-between items-center px-8 py-7 border-b border-purple-900/50">
               <span className="text-xl font-black italic tracking-[0.22em] text-white">MOSCOW</span>
               <button onClick={() => setMobileMenuOpen(false)} className="text-3xl font-light leading-none text-purple-300 hover:text-white transition-colors p-1" aria-label="Close menu">×</button>
@@ -905,9 +948,7 @@ export default function App() {
               </div>
             </nav>
           </aside>
-          <style>{`@keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }`}</style>
-        </div>
-      )}
+      </div>
 
       <section className="relative h-[88vh] w-full flex flex-col justify-between items-center text-center pt-16 pb-10 px-4 overflow-hidden">
         <div className="absolute inset-0 z-0">
