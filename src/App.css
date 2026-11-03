@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 /* General Body Settings */
+
 body {
   margin: 0;
   padding: 0;
@@ -9,6 +10,7 @@ body {
 }
 
 /* Hero Section Parallax Effect */
+
 .hero-container {
   position: relative;
   height: 100vh; /* Full screen height */
@@ -30,11 +32,12 @@ body {
   background-position: center;
   background-repeat: no-repeat;
   /* This makes the background fixed while scrolling */
-  background-attachment: fixed; 
+  background-attachment: fixed;
   z-index: 0;
 }
 
 /* Optional: Add a darker overlay on the image for text readability */
+
 .hero-bg::after {
   content: '';
   position: absolute;
@@ -54,6 +57,7 @@ body {
 }
 
 /* Typography styles */
+
 .hero-title {
   font-size: 5rem;
   font-weight: 900;
@@ -61,7 +65,7 @@ body {
   line-height: 0.9;
   margin-bottom: 20px;
   letter-spacing: 0.05em;
-  text-shadow: 0 4px 6px rgba(0,0,0,0.5);
+  text-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
 }
 
 .hero-title-hollow {
@@ -74,6 +78,7 @@ body {
   color: #d1d5db; /* Light gray */
   margin-bottom: 30px;
 }
+
 .admin-input {
   width: 100%;
   background: #000;

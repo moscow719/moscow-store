@@ -1,7 +1,6 @@
 import React from 'react';
 import FooterContent from './FooterContent';
 
-// ==================== ProductDetailModal (moved OUTSIDE App) ====================
 const ProductDetailModal = ({
   showProductDetail,
   selectedProduct,
@@ -27,16 +26,27 @@ const ProductDetailModal = ({
 }) => {
   const product = selectedProduct;
   const [openDetail, setOpenDetail] = React.useState(null);
+
   const productImages = React.useMemo(() => {
     if (!product) return [];
-    if (Array.isArray(product.detailImages) && product.detailImages.length > 0) {
+
+    if (
+      Array.isArray(product.detailImages) &&
+      product.detailImages.length > 0
+    ) {
       return product.detailImages.slice(0, 4);
     }
 
-    const detailMatch = String(product.image || '').match(/^(.+)\/(product\d+)\.jpg$/i);
+    const detailMatch = String(product.image || '').match(
+      /^(.+)\/(product\d+)\.jpg$/i
+    );
+
     if (detailMatch) {
       const [, directory, productName] = detailMatch;
-      return [1, 2, 3, 4].map(index => `${directory}/${productName}-detail${index}.jpg`);
+
+      return [1, 2, 3, 4].map(
+        (index) => `${directory}/${productName}-detail${index}.jpg`
+      );
     }
 
     return [product.image, product.image, product.image, product.image];
@@ -45,65 +55,121 @@ const ProductDetailModal = ({
   if (!showProductDetail || !product) return null;
 
   const price = Number(product.price);
-  const hasValidPrice = product.price !== null && product.price !== '' &&
-    Number.isFinite(price) && price >= 0;
+
+  const hasValidPrice =
+    product.price !== null &&
+    product.price !== '' &&
+    Number.isFinite(price) &&
+    price >= 0;
+
   const oldPrice = Number(product.oldPrice);
-  const hasDiscount = product.oldPrice !== null && product.oldPrice !== undefined &&
-    product.oldPrice !== '' && Number.isFinite(oldPrice) && oldPrice > price && hasValidPrice;
-  const discount = hasDiscount ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
-  const stockQuantity = Number.isSafeInteger(product.stockQuantity) && product.stockQuantity >= 0
-    ? product.stockQuantity
-    : null;
-  const isOutOfStock = product.inStock === false || stockQuantity === 0;
+
+  const hasDiscount =
+    product.oldPrice !== null &&
+    product.oldPrice !== undefined &&
+    product.oldPrice !== '' &&
+    Number.isFinite(oldPrice) &&
+    oldPrice > price &&
+    hasValidPrice;
+
+  const discount = hasDiscount
+    ? Math.round(((oldPrice - price) / oldPrice) * 100)
+    : 0;
+
+  const stockQuantity =
+    Number.isSafeInteger(product.stockQuantity) &&
+    product.stockQuantity >= 0
+      ? product.stockQuantity
+      : null;
+
+  const isOutOfStock =
+    product.inStock === false || stockQuantity === 0;
+
   const suppliedSizes = Array.isArray(product.sizes)
     ? product.sizes
     : Array.isArray(product.availableSizes)
       ? product.availableSizes
       : null;
+
   const validSizes = suppliedSizes
-    ? suppliedSizes.map(size => String(size).trim().toUpperCase())
-      .filter(size => /^(XS|S|M|L|XL|XXL|XXXL|ONE SIZE)$/.test(size))
+    ? suppliedSizes
+        .map((size) => String(size).trim().toUpperCase())
+        .filter((size) =>
+          /^(XS|S|M|L|XL|XXL|XXXL|ONE SIZE)$/.test(size)
+        )
     : null;
+
   const availableSizes = validSizes?.length
     ? [...new Set(validSizes)]
     : String(product.category || '').toUpperCase() === 'CAPS' ||
-      String(product.size || '').trim().toUpperCase() === 'ONE SIZE'
+        String(product.size || '').trim().toUpperCase() === 'ONE SIZE'
       ? ['ONE SIZE']
       : ['S', 'M', 'L', 'XL', 'XXL'];
+
   const suppliedColors = Array.isArray(product.availableColors)
     ? product.availableColors
     : typeof product.color === 'string' && product.color.trim()
       ? [product.color]
       : [];
-  const availableColors = [...new Set(suppliedColors
-    .filter(color => typeof color === 'string' && color.trim() && color.length <= 32)
-    .map(color => color.trim()))];
+
+  const availableColors = [
+    ...new Set(
+      suppliedColors
+        .filter(
+          (color) =>
+            typeof color === 'string' &&
+            color.trim() &&
+            color.length <= 32
+        )
+        .map((color) => color.trim())
+    ),
+  ];
+
   const alreadyInCart = cart
-    .filter(item => String(item.id) === String(product.id))
+    .filter((item) => String(item.id) === String(product.id))
     .reduce((total, item) => total + item.quantity, 0);
-  const maxAddableQuantity = stockQuantity === null ? Number.MAX_SAFE_INTEGER : Math.max(0, stockQuantity - alreadyInCart);
+
+  const maxAddableQuantity =
+    stockQuantity === null
+      ? Number.MAX_SAFE_INTEGER
+      : Math.max(0, stockQuantity - alreadyInCart);
+
   const quantityLimitReached = quantity >= maxAddableQuantity;
-  const formatPrice = value => `LE ${value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  })}`;
 
-  const isWishlisted = wishlist.some(value =>
-    String(value) === String(product.id) ||
-    String(value).toLowerCase() === product.name.trim().toLowerCase() ||
-    String(value) === `image:${String(product.image || '').toLowerCase().match(/\/([^/]+?)(?:-detail\d+)?\.jpg$/)?.[1] || ''}`
+  const formatPrice = (value) =>
+    `LE ${value.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const wishlistImageMatch = String(product.image || '')
+    .toLowerCase()
+    .match(/\/([^/]+?)(?:-detail\d+)?\.jpg$/);
+
+  const isWishlisted = wishlist.some(
+    (value) =>
+      String(value) === String(product.id) ||
+      String(value).toLowerCase() ===
+        String(product.name || '').trim().toLowerCase() ||
+      String(value) ===
+        `image:${wishlistImageMatch?.[1] || ''}`
   );
 
-  const sameCategoryProducts = allProductsCombined.filter(item =>
-    item.id !== product.id &&
-    product.category &&
-    item.category?.toUpperCase() === product.category.toUpperCase()
+  const sameCategoryProducts = allProductsCombined.filter(
+    (item) =>
+      item.id !== product.id &&
+      product.category &&
+      item.category?.toUpperCase() ===
+        product.category.toUpperCase()
   );
+
   const relatedProducts = [
     ...sameCategoryProducts,
-    ...allProductsCombined.filter(item =>
-      item.id !== product.id && !sameCategoryProducts.includes(item)
-    )
+    ...allProductsCombined.filter(
+      (item) =>
+        item.id !== product.id &&
+        !sameCategoryProducts.includes(item)
+    ),
   ].slice(0, 8);
 
   return (
@@ -114,9 +180,13 @@ const ProductDetailModal = ({
 
       <div className="flex items-center justify-between px-6 md:px-8 py-4 bg-black border-b border-purple-900/40 sticky top-0 z-50">
         <div className="cursor-pointer" onClick={closeProductDetail}>
-          <span className="text-xl font-black italic tracking-[0.22em] text-white leading-none">MOSCOW</span>
+          <span className="text-xl font-black italic tracking-[0.22em] text-white leading-none">
+            MOSCOW
+          </span>
         </div>
+
         <button
+          type="button"
           onClick={closeProductDetail}
           className="bg-white text-black px-4 py-1.5 rounded text-xs font-black uppercase hover:bg-purple-400 transition-colors"
         >
@@ -125,19 +195,32 @@ const ProductDetailModal = ({
       </div>
 
       <div className="max-w-[1280px] mx-auto w-full px-0 md:px-10 lg:px-16 py-0 md:py-8 flex-grow">
-
         <nav className="hidden md:flex items-center gap-2 text-xs text-gray-400 mb-6">
-          <span onClick={() => closeProductDetail()} className="hover:text-purple-400 cursor-pointer">Home</span>
+          <span
+            onClick={closeProductDetail}
+            className="hover:text-purple-400 cursor-pointer"
+          >
+            Home
+          </span>
+
           <span>/</span>
-          <span className="hover:text-purple-400 cursor-pointer">Men</span>
+
+          <span className="hover:text-purple-400 cursor-pointer">
+            Men
+          </span>
+
           <span>/</span>
-          <span className="text-purple-400">{product.category || 'Product'}</span>
+
+          <span className="text-purple-400">
+            {product.category || 'Product'}
+          </span>
+
           <span>/</span>
+
           <span className="text-white">{product.name}</span>
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.7fr)_minmax(330px,0.85fr)] gap-0 md:gap-12 xl:gap-20">
-
           <div className="space-y-0 md:space-y-4 lg:min-w-0">
             <div className="relative aspect-[3/4] md:rounded-lg overflow-hidden border-b md:border border-purple-950 lg:aspect-[4/5]">
               {product.tag && (
@@ -145,6 +228,7 @@ const ProductDetailModal = ({
                   {product.tag}
                 </span>
               )}
+
               <img
                 src={productImages[activeImage]}
                 alt={product.name}
@@ -158,16 +242,21 @@ const ProductDetailModal = ({
             <div className="grid grid-cols-4 gap-2 p-3 md:p-0">
               {productImages.map((img, idx) => (
                 <button
+                  type="button"
                   key={idx}
                   onClick={() => setActiveImage(idx)}
                   className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                    activeImage === idx ? 'border-purple-500' : 'border-purple-950 hover:border-purple-600'
+                    activeImage === idx
+                      ? 'border-purple-500'
+                      : 'border-purple-950 hover:border-purple-600'
                   }`}
                 >
                   <img
                     src={img}
                     alt=""
-                    onError={(event) => { event.currentTarget.src = product.image; }}
+                    onError={(event) => {
+                      event.currentTarget.src = product.image;
+                    }}
                     className="w-full h-full object-cover"
                   />
                 </button>
@@ -177,31 +266,57 @@ const ProductDetailModal = ({
 
           <div className="space-y-5 px-4 py-6 md:px-0 md:py-0 lg:sticky lg:top-24 lg:self-start lg:pt-2">
             <div>
-              <p className="text-[11px] uppercase tracking-widest text-gray-400 mb-1">{product.category || 'T-SHIRT'}</p>
-              <h1 className="text-3xl md:text-4xl lg:text-3xl font-black uppercase tracking-tight">{product.name}</h1>
+              <p className="text-[11px] uppercase tracking-widest text-gray-400 mb-1">
+                {product.category || 'T-SHIRT'}
+              </p>
+
+              <h1 className="text-3xl md:text-4xl lg:text-3xl font-black uppercase tracking-tight">
+                {product.name}
+              </h1>
+
               <div className="flex items-center gap-3 mt-3">
                 <div className="flex items-center gap-1 text-amber-400">
                   <span>★</span>
-                  <span className="text-sm font-bold text-white">{product.rating}</span>
+                  <span className="text-sm font-bold text-white">
+                    {product.rating}
+                  </span>
                 </div>
-                <span className="text-xs text-gray-400">(127 reviews)</span>
+
+                <span className="text-xs text-gray-400">
+                  (127 reviews)
+                </span>
               </div>
             </div>
 
             <div className="flex items-center gap-4 flex-wrap">
               <span className="text-3xl font-black text-white">
-                {hasValidPrice ? formatPrice(price) : 'Price unavailable'}
+                {hasValidPrice
+                  ? formatPrice(price)
+                  : 'Price unavailable'}
               </span>
+
               {hasDiscount && (
                 <>
-                  <span className="text-xl text-gray-500 line-through">{formatPrice(oldPrice)}</span>
+                  <span className="text-xl text-gray-500 line-through">
+                    {formatPrice(oldPrice)}
+                  </span>
+
                   <span className="bg-red-500/20 text-red-400 text-sm font-black px-2 py-1 rounded border border-red-500/30">
                     -{discount}%
                   </span>
                 </>
               )}
             </div>
-            <p className={`text-xs font-bold ${isOutOfStock ? 'text-red-400' : stockQuantity !== null && stockQuantity <= 5 ? 'text-amber-300' : 'text-green-400'}`}>
+
+            <p
+              className={`text-xs font-bold ${
+                isOutOfStock
+                  ? 'text-red-400'
+                  : stockQuantity !== null && stockQuantity <= 5
+                    ? 'text-amber-300'
+                    : 'text-green-400'
+              }`}
+            >
               {isOutOfStock
                 ? 'Out of stock'
                 : stockQuantity === null
@@ -210,17 +325,21 @@ const ProductDetailModal = ({
             </p>
 
             <p className="text-gray-300 text-sm leading-relaxed border-b border-purple-950 pb-5 lg:text-xs">
-              {product.description || "Premium heavyweight cotton oversized tee featuring exclusive anime artwork. Limited edition drop - no restocks once sold out."}
+              {product.description ||
+                'Premium heavyweight cotton oversized tee featuring exclusive anime artwork. Limited edition drop - no restocks once sold out.'}
             </p>
 
             {availableColors.length > 0 && (
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-widest text-gray-300 mb-3">
-                  Color: <span className="text-purple-400">{selectedColor || 'Select a color'}</span>
+                  Color:{' '}
+                  <span className="text-purple-400">
+                    {selectedColor || 'Select a color'}
+                  </span>
                 </h3>
+
                 <div className="flex gap-3">
-                  {availableColors.map((color, idx) => {
-                    return (
+                  {availableColors.map((color, idx) => (
                     <button
                       type="button"
                       key={`${color}-${idx}`}
@@ -235,8 +354,7 @@ const ProductDetailModal = ({
                       style={{ backgroundColor: color }}
                       title={color}
                     />
-                    );
-                  })}
+                  ))}
                 </div>
               </div>
             )}
@@ -244,22 +362,35 @@ const ProductDetailModal = ({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-gray-300">
-                  Size: <span className="text-purple-400">{selectedSize || 'Select a size'}</span>
+                  Size:{' '}
+                  <span className="text-purple-400">
+                    {selectedSize || 'Select a size'}
+                  </span>
                 </h3>
-                <button className="text-xs text-purple-400 hover:text-purple-300 underline">Size Guide</button>
+
+                <button
+                  type="button"
+                  className="text-xs text-purple-400 hover:text-purple-300 underline"
+                >
+                  Size Guide
+                </button>
               </div>
+
               <div className="flex gap-2 flex-wrap lg:flex-nowrap">
                 {availableSizes.map((size) => (
                   <button
                     type="button"
                     key={size}
-                    onClick={() => { setSelectedSize(size); setShowSizeError(false); }}
+                    onClick={() => {
+                      setSelectedSize(size);
+                      setShowSizeError(false);
+                    }}
                     className={`min-w-[50px] h-12 rounded border-2 text-sm font-bold transition-all lg:flex-1 ${
                       selectedSize === size
                         ? 'bg-purple-600 border-purple-500 text-white'
                         : showSizeError
-                        ? 'border-red-500 text-gray-300 hover:border-purple-400'
-                        : 'border-purple-950 text-gray-300 hover:border-purple-600'
+                          ? 'border-red-500 text-gray-300 hover:border-purple-400'
+                          : 'border-purple-950 text-gray-300 hover:border-purple-600'
                     } ${isOutOfStock ? 'opacity-40 cursor-not-allowed' : ''}`}
                     disabled={isOutOfStock}
                   >
@@ -267,22 +398,34 @@ const ProductDetailModal = ({
                   </button>
                 ))}
               </div>
+
               {showSizeError && (
-                <p className="text-red-400 text-xs mt-2">⚠️ Please select a size</p>
+                <p className="text-red-400 text-xs mt-2">
+                  ⚠️ Please select a size
+                </p>
               )}
             </div>
 
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-widest text-gray-300 mb-3">Quantity</h3>
+              <h3 className="text-xs font-bold uppercase tracking-widest text-gray-300 mb-3">
+                Quantity
+              </h3>
+
               <div className="flex items-center gap-3 bg-[#0d0617] border border-purple-950 rounded-lg w-fit">
                 <button
                   type="button"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  onClick={() =>
+                    setQuantity(Math.max(1, quantity - 1))
+                  }
                   className="w-10 h-10 text-lg font-bold hover:text-purple-400 transition-colors"
                 >
                   -
                 </button>
-                <span className="w-10 text-center font-bold">{quantity}</span>
+
+                <span className="w-10 text-center font-bold">
+                  {quantity}
+                </span>
+
                 <button
                   type="button"
                   onClick={() => setQuantity(quantity + 1)}
@@ -298,17 +441,29 @@ const ProductDetailModal = ({
               <button
                 type="button"
                 onClick={addToCartFromDetail}
-                disabled={isOutOfStock || !hasValidPrice || quantityLimitReached || !selectedSize}
+                disabled={
+                  isOutOfStock ||
+                  !hasValidPrice ||
+                  quantityLimitReached ||
+                  !selectedSize
+                }
                 className="flex-1 bg-[#4c2b86] hover:bg-purple-600 text-white font-black py-4 px-4 uppercase tracking-widest text-sm transition-all shadow-lg hover:shadow-purple-500/50 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed"
               >
                 Add to Cart
               </button>
+
               <button
                 type="button"
                 onClick={(e) => toggleWishlist(product.id, e)}
                 className="w-14 h-14 border-2 border-purple-950 hover:border-purple-500 flex items-center justify-center text-2xl transition-all hover:scale-110"
+                aria-label={
+                  isWishlisted
+                    ? 'Remove from wishlist'
+                    : 'Add to wishlist'
+                }
+                aria-pressed={isWishlisted}
               >
-                {isWishlisted ? "❤️" : "♡"}
+                {isWishlisted ? '❤️' : '♡'}
               </button>
             </div>
 
@@ -317,14 +472,17 @@ const ProductDetailModal = ({
                 <span className="text-purple-400 text-lg">🚚</span>
                 <span>Free shipping over 1500 LE</span>
               </div>
+
               <div className="flex items-center gap-2 text-xs text-gray-300 py-3 border-b border-purple-950 pl-2">
                 <span className="text-purple-400 text-lg">💵</span>
                 <span>Cash on delivery</span>
               </div>
+
               <div className="flex items-center gap-2 text-xs text-gray-300 py-3 border-r border-purple-950 pr-2">
                 <span className="text-purple-400 text-lg">🔄</span>
                 <span>Easy exchanges</span>
               </div>
+
               <div className="flex items-center gap-2 text-xs text-gray-300 py-3 pl-2">
                 <span className="text-purple-400 text-lg">⚡</span>
                 <span>Limited drop - no restocks</span>
@@ -335,34 +493,68 @@ const ProductDetailModal = ({
 
         <div className="px-4 md:px-0 mt-8 md:mt-14 border-t border-purple-950">
           {[
-            ['details', 'The details', product.description || 'Premium heavyweight cotton with an oversized fit and exclusive artwork.'],
-            ['fit', 'Size & fit', 'Oversized fit. Choose your usual size for a relaxed look or size down for a closer fit.'],
-            ['shipping', 'Shipping & delivery', 'Cash on delivery available. Orders are delivered within 2–5 business days.'],
-            ['returns', 'Exchanges & replacements', 'Easy exchanges are available. Contact us if your item arrives damaged.'],
-            ['care', 'Fabric & care', 'Wash inside out with similar colors. Do not bleach. Air dry when possible.']
+            [
+              'details',
+              'The details',
+              product.description ||
+                'Premium heavyweight cotton with an oversized fit and exclusive artwork.',
+            ],
+            [
+              'fit',
+              'Size & fit',
+              'Oversized fit. Choose your usual size for a relaxed look or size down for a closer fit.',
+            ],
+            [
+              'shipping',
+              'Shipping & delivery',
+              'Cash on delivery available. Orders are delivered within 2–5 business days.',
+            ],
+            [
+              'returns',
+              'Exchanges & replacements',
+              'Easy exchanges are available. Contact us if your item arrives damaged.',
+            ],
+            [
+              'care',
+              'Fabric & care',
+              'Wash inside out with similar colors. Do not bleach. Air dry when possible.',
+            ],
           ].map(([id, title, content]) => (
             <div key={id} className="border-b border-purple-950">
               <button
                 type="button"
-                onClick={() => setOpenDetail(openDetail === id ? null : id)}
+                onClick={() =>
+                  setOpenDetail(openDetail === id ? null : id)
+                }
                 className="w-full flex items-center justify-between py-5 text-left text-xs font-bold uppercase tracking-wider text-white"
+                aria-expanded={openDetail === id}
               >
                 <span>{title}</span>
-                <span className="text-xl font-light">{openDetail === id ? '−' : '+'}</span>
+                <span className="text-xl font-light">
+                  {openDetail === id ? '−' : '+'}
+                </span>
               </button>
-              {openDetail === id && <p className="pb-5 pr-8 text-sm leading-relaxed text-gray-400">{content}</p>}
+
+              {openDetail === id && (
+                <p className="pb-5 pr-8 text-sm leading-relaxed text-gray-400">
+                  {content}
+                </p>
+              )}
             </div>
           ))}
         </div>
 
         {relatedProducts.length > 0 && (
           <div className="mt-16 pt-12 border-t border-purple-950">
-            <h2 className="text-2xl md:text-4xl font-black uppercase tracking-tight mb-8">More Like This</h2>
+            <h2 className="text-2xl md:text-4xl font-black uppercase tracking-tight mb-8">
+              More Like This
+            </h2>
+
             <div className="flex gap-4 md:gap-6 overflow-x-auto pb-5 snap-x snap-mandatory [scrollbar-width:thin]">
               {relatedProducts.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => { openProductDetail(item); }}
+                  onClick={() => openProductDetail(item)}
                   className="cursor-pointer group shrink-0 w-[72vw] sm:w-[42vw] md:w-[250px] lg:w-[280px] snap-start"
                 >
                   <div className="relative aspect-[3/4] bg-[#0d0617] rounded-lg overflow-hidden border border-purple-950 group-hover:border-purple-600 transition-all">
@@ -371,12 +563,34 @@ const ProductDetailModal = ({
                         Sale
                       </span>
                     )}
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      onError={(event) => {
+                        event.currentTarget.src = '/images/product1.jpg';
+                      }}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
                   </div>
-                  <h3 className="text-xs font-bold uppercase mt-3 group-hover:text-purple-400 transition-colors">{item.name}</h3>
-                  <p className="text-sm text-purple-400 font-bold">LE {item.price}.00</p>
-                  {item.oldPrice && <p className="text-xs text-gray-500 line-through">LE {item.oldPrice}.00</p>}
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mt-1">{item.size || 'S'} &nbsp; {item.category || 'T-SHIRTS'}</p>
+
+                  <h3 className="text-xs font-bold uppercase mt-3 group-hover:text-purple-400 transition-colors">
+                    {item.name}
+                  </h3>
+
+                  <p className="text-sm text-purple-400 font-bold">
+                    LE {Number(item.price).toLocaleString()}.00
+                  </p>
+
+                  {item.oldPrice && (
+                    <p className="text-xs text-gray-500 line-through">
+                      LE {Number(item.oldPrice).toLocaleString()}.00
+                    </p>
+                  )}
+
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mt-1">
+                    {item.size || 'S'} &nbsp; {item.category || 'T-SHIRTS'}
+                  </p>
                 </div>
               ))}
             </div>
@@ -384,10 +598,12 @@ const ProductDetailModal = ({
         )}
       </div>
 
-      <FooterContent timeLeft={timeLeft} setShowAllModal={setShowAllModal} />
+      <FooterContent
+        timeLeft={timeLeft}
+        setShowAllModal={setShowAllModal}
+      />
     </div>
   );
 };
-
 
 export default ProductDetailModal;

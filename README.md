@@ -13,7 +13,7 @@ React and Vite storefront with a Vercel API function and Supabase persistence.
 From this directory:
 
 ```sh
-npm ci
+npm install
 npm run dev
 ```
 
