@@ -158,6 +158,18 @@ const getProductIdentity = (item) => {
 };
 
 export default function App() {
+  if (window.location.pathname.replace(/\/+$/, '') === '/admin') {
+    return (
+      <AdminPanel
+        onClose={() => window.location.assign('/')}
+      />
+    );
+  }
+
+  return <Storefront />;
+}
+
+function Storefront() {
   const [cart, setCart] = useState(() => {
     const storedCart = readStoredArray('moscow-cart');
 
@@ -276,7 +288,6 @@ export default function App() {
   const [showCartModal, setShowCartModal] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] =
     useState(false);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showTrackOrderModal, setShowTrackOrderModal] =
     useState(false);
   const [trackOrderNumber, setTrackOrderNumber] = useState('');
@@ -1744,7 +1755,7 @@ export default function App() {
                     type="button"
                     onClick={() => {
                       setShowAccountDropdown(false);
-                      setShowAdminPanel(true);
+                      window.location.assign('/admin');
                     }}
                     className="w-full text-left px-4 py-3 hover:bg-[#140822] cursor-pointer text-purple-300 flex items-center gap-2"
                   >
@@ -3717,14 +3728,6 @@ export default function App() {
             setShowCheckoutModal(false);
             setShowTrackOrderModal(true);
           }}
-        />
-      )}
-
-      {showAdminPanel && (
-        <AdminPanel
-          onClose={() =>
-            setShowAdminPanel(false)
-          }
         />
       )}
 
