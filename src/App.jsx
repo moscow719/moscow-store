@@ -1755,7 +1755,7 @@ function Storefront() {
                     type="button"
                     onClick={() => {
                       setShowAccountDropdown(false);
-                      window.location.assign('/admin');
+                      window.open('/admin', '_blank', 'noopener,noreferrer');
                     }}
                     className="w-full text-left px-4 py-3 hover:bg-[#140822] cursor-pointer text-purple-300 flex items-center gap-2"
                   >
