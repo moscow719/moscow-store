@@ -879,19 +879,23 @@ export default function App() {
   const allProductsCombined = products;
 
   const filteredProducts = React.useMemo(
-    () =>
-      products.filter(
+    () => {
+      const categoryFilter = selectedCategory.trim().toLowerCase();
+
+      return products.filter(
         (product) =>
-          selectedCategory === 'ALL' ||
-          String(product.category || '').toLowerCase() ===
-            selectedCategory.toLowerCase()
-      ),
+          categoryFilter === 'all' ||
+          String(product.category || '').trim().toLowerCase() ===
+            categoryFilter
+      );
+    },
     [products, selectedCategory]
   );
 
   const selectMobileCategory = (category) => {
-    setSelectedCategory(category.toLowerCase());
-    setActiveTab(category.toUpperCase());
+    const normalizedCategory = category.trim();
+    setSelectedCategory(normalizedCategory.toLowerCase());
+    setActiveTab(normalizedCategory.toUpperCase());
     setMobileMenuOpen(false);
     setShowAllModal(true);
   };
@@ -2024,13 +2028,6 @@ export default function App() {
                 () => {
                   setShowMenModal(true);
                   setMenSubCategory('ALL');
-                  setMobileMenuOpen(false);
-                },
-              ],
-              [
-                'WOMEN ALL',
-                () => {
-                  setShowAllModal(true);
                   setMobileMenuOpen(false);
                 },
               ],
